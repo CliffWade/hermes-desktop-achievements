@@ -6,6 +6,8 @@ A full achievements page (score header, tier filters, progress bars, rescan),
 a sidebar nav row, a live statusbar score chip, and a ⌘K command — all backed
 by the `hermes-achievements` dashboard plugin that ships with Hermes Agent.
 
+![Achievements page](docs/achievements-page.png)
+
 ## What you get
 
 - **Score header** — unlocked/total, discovered/secret counts, scan freshness,
@@ -79,3 +81,8 @@ Quick iteration loop: edit `plugin.js`, save — the app hot-reloads in place.
 ## License
 
 MIT
+
+---
+
+Built by [Tony Simons](https://x.com/tonysimons_) — follow for more Hermes
+builds and AI agent experiments.
