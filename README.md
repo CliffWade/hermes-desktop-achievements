@@ -86,3 +86,7 @@ MIT
 
 Built by [Tony Simons](https://x.com/tonysimons_) — follow for more Hermes
 builds and AI agent experiments.
+
+## Upstream
+
+Filed upstream at [NousResearch/hermes-agent#77317](https://github.com/NousResearch/hermes-agent/pull/77317) — the bundled TSX version of this plugin, following the kanban desktop plugin pattern.
