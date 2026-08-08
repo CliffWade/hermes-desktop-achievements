@@ -28,6 +28,13 @@ by the `hermes-achievements` dashboard plugin that ships with Hermes Agent.
   webhook URL, persisted across restarts
 - **Milestone celebrations** — a bigger confetti party at every 10 unlocks
 - **Weekly mini-stats** — unlocks this week, busiest day, tier counts
+- **Activity heatmap** — a GitHub-style year view of session days and tool
+  calls, so your streak and rhythm are visible at a glance
+- **Set collections** — finish every achievement in a category to earn a
+  trophy set badge (complete all 8 for the Completionist reward)
+- **Reward themes** — reach Diamond or Olympian tier, hold a 30-day streak,
+  or complete every set to unlock exclusive themes you can install
+  straight from the page
 - **Streak tracking** — the statusbar chip shows your 🔥 current-day streak,
   and a Streak Burner badge tracks your longest consecutive-day run
 - **Next-up ETA** — locked achievements closest to unlocking show an estimate

@@ -328,10 +328,14 @@ let _watcherTimer = null
 let _lastTotal = null
 
 function notifyUnlock(a) {
-  celebrate(a)
+  // Set-collection completions are bigger moments: full fanfare + milestone
+  // confetti, plus a distinct message.
+  const isSet = a && a.kind === 'collection'
+  celebrate(a, isSet ? { milestone: true } : undefined)
   const tier = a.tier ? ` [${a.tier}]` : ''
-  host.notify({ kind: 'success', message: `Achievement unlocked: ${a.name}${tier}` })
-  postToWebhook(`🏆 Achievement unlocked: ${a.name}${tier}`)
+  const prefix = isSet ? '🏅 Set complete: ' : 'Achievement unlocked: '
+  host.notify({ kind: 'success', message: `${prefix}${a.name}${tier}` })
+  postToWebhook(`${isSet ? '🏅 Set complete: ' : '🏆 Achievement unlocked: '}${a.name}${tier}`)
 }
 
 async function refreshUnlocks(ctx) {
@@ -1095,6 +1099,219 @@ function MiniStats({ data }) {
   })
 }
 
+// ── Activity heatmap (GitHub-style contribution graph) ────────────────────
+
+function ActivityHeatmap({ activity }) {
+  if (!activity || activity.length === 0) return null
+
+  // Find the max tools-per-day for intensity scaling (0 → empty, 4 levels).
+  const max = Math.max(1, ...activity.map(d => d.tools || 0))
+  const levels = ['bg-(--ui-bg-quaternary)', 'bg-(--ui-accent)/25', 'bg-(--ui-accent)/55', 'bg-(--ui-accent)/80', 'bg-(--ui-accent)']
+  const levelFor = d => {
+    if (!d.sessions) return 0
+    const ratio = (d.tools || 0) / max
+    if (ratio <= 0) return 0
+    if (ratio < 0.25) return 1
+    if (ratio < 0.5) return 2
+    if (ratio < 0.75) return 3
+    return 4
+  }
+
+  const weekdayLabels = ['Mon', 'Wed', 'Fri']
+  const monthLabels = []
+  {
+    let last = null
+    for (const d of activity) {
+      const dt = new Date(d.date + 'T00:00:00')
+      const m = dt.toLocaleDateString('en-US', { month: 'short' })
+      if (m !== last) {
+        monthLabels.push({ m, date: d.date })
+        last = m
+      }
+    }
+  }
+
+  // Group by week (columns). Day-of-week from date; Monday-first.
+  const weeks = []
+  for (const d of activity) {
+    const dt = new Date(d.date + 'T00:00:00')
+    const dow = (dt.getDay() + 6) % 7 // Mon=0 ... Sun=6
+    let week = weeks[weeks.length - 1]
+    if (!week || week.length >= 7) {
+      week = []
+      weeks.push(week)
+    }
+    // Pad to the day-of-week so each week column aligns.
+    while (week.length < dow) week.push(null)
+    week.push(d)
+  }
+  // Pad the last week to full height.
+  const lastWeek = weeks[weeks.length - 1]
+  if (lastWeek) while (lastWeek.length < 7) lastWeek.push(null)
+
+  const totalDays = activity.filter(d => d.sessions > 0).length
+  const totalTools = activity.reduce((n, d) => n + (d.tools || 0), 0)
+
+  return jsxs('div', {
+    className: 'border-b border-(--ui-stroke-secondary) px-6 py-4',
+    children: [
+      jsxs('div', {
+        className: 'mb-2 flex items-baseline justify-between',
+        children: [
+          jsx('div', {
+            className: 'text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary)',
+            children: 'Activity'
+          }),
+          jsx('span', {
+            className: 'text-[0.6875rem] text-(--ui-text-quaternary)',
+            children: `${totalDays} active days · ${totalTools.toLocaleString()} tool calls · last 12 months`
+          })
+        ]
+      }),
+      jsxs('div', {
+        className: 'overflow-x-auto',
+        children: [
+          jsxs('div', {
+            className: 'flex gap-1',
+            children: [
+              jsxs('div', {
+                className: 'flex flex-col justify-between py-0.5 pr-1 text-[0.625rem] text-(--ui-text-quaternary)',
+                children: [
+                  jsx('span', { children: 'Mon' }),
+                  jsx('span', { children: 'Wed' }),
+                  jsx('span', { children: 'Fri' })
+                ]
+              }),
+              jsxs('div', {
+                className: 'flex gap-[3px]',
+                children: weeks.map((week, wi) =>
+                  jsx('div', {
+                    key: wi,
+                    className: 'flex flex-col gap-[3px]',
+                    children: week.map((d, di) =>
+                      d === null
+                        ? jsx('div', { key: di, className: 'h-2.5 w-2.5 rounded-[2px] bg-transparent' })
+                        : jsx('div', {
+                            key: di,
+                            title: `${d.date}: ${d.sessions} session${d.sessions === 1 ? '' : 's'}, ${d.tools} tool calls`,
+                            className: cn('h-2.5 w-2.5 rounded-[2px]', levels[levelFor(d)])
+                          })
+                    )
+                  })
+                )
+              })
+            ]
+          })
+        ]
+      })
+    ]
+  })
+}
+
+// ── Rewards strip (unlockable theme rewards) ──────────────────────────────
+
+function RewardsStrip({ rewards }) {
+  const [installing, setInstalling] = useState(null)
+  const [installed, setInstalled] = useState({})
+
+  if (!rewards || rewards.length === 0) return null
+
+  const install = async (reward) => {
+    setInstalling(reward.id)
+    try {
+      const res = await rest(`/rewards/${encodeURIComponent(reward.id)}/install`, { method: 'POST' })
+      if (res && res.ok) {
+        setInstalled(prev => ({ ...prev, [reward.id]: true }))
+        haptic('tap')
+        host.notify({ kind: 'success', message: `Theme installed: ${reward.theme}. Find it in Appearance.` })
+      } else {
+        host.notify({ kind: 'error', message: `Reward install failed: ${res?.error || 'unknown error'}` })
+      }
+    } catch (e) {
+      host.notify({ kind: 'error', message: `Reward install failed: ${e?.message ?? e}` })
+    } finally {
+      setInstalling(null)
+    }
+  }
+
+  const rewardIcon = id => ({
+    theme_diamond: '💎',
+    theme_streak30: '🔥',
+    theme_olympian: '🏆',
+    theme_sets: '🏅'
+  }[id] || '🎁')
+
+  return jsxs('div', {
+    className: 'border-b border-(--ui-stroke-secondary) px-6 py-4',
+    children: [
+      jsx('div', {
+        className: 'mb-2 text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary)',
+        children: 'Rewards'
+      }),
+      jsxs('div', {
+        className: 'grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4',
+        children: rewards.map(r => {
+          const isInstalled = !!installed[r.id]
+          const icon = rewardIcon(r.id)
+          return jsxs('div', {
+            key: r.id,
+            className: cn(
+              'rounded-lg border p-3 transition-colors',
+              r.unlocked
+                ? 'border-(--ui-accent)/40 bg-(--ui-bg-secondary)'
+                : 'border-(--ui-stroke-secondary) bg-(--ui-bg-tertiary)'
+            ),
+            children: [
+              jsxs('div', {
+                className: 'flex items-center justify-between gap-2',
+                children: [
+                  jsxs('div', {
+                    className: 'flex items-center gap-2',
+                    children: [
+                      jsx('span', { className: 'text-base', children: icon }),
+                      jsx('span', { className: 'truncate text-xs font-medium', children: r.name })
+                    ]
+                  }),
+                  r.unlocked
+                    ? jsx('span', { className: 'shrink-0 text-[0.6875rem] text-(--ui-accent)', children: 'Unlocked' })
+                    : jsx('span', { className: 'shrink-0 text-[0.6875rem] text-(--ui-text-quaternary)', children: 'Locked' })
+                ]
+              }),
+              jsx('p', {
+                className: 'mt-1.5 min-h-[2rem] text-[0.6875rem] leading-snug text-(--ui-text-tertiary)',
+                children: r.description
+              }),
+              jsxs('div', {
+                className: 'mt-2 flex items-center justify-between gap-2',
+                children: [
+                  jsx('span', {
+                    className: 'truncate text-[0.6875rem] tabular-nums text-(--ui-text-quaternary)',
+                    children: r.progress || 'not started'
+                  }),
+                  r.unlocked
+                    ? jsx('button', {
+                        className: cn(
+                          'shrink-0 rounded-md px-2 py-1 text-[0.6875rem] font-medium transition-colors',
+                          isInstalled
+                            ? 'text-(--ui-text-quaternary)'
+                            : 'bg-(--ui-accent) text-(--ui-bg) hover:brightness-110'
+                        ),
+                        type: 'button',
+                        disabled: isInstalled || installing === r.id,
+                        onClick: () => install(r),
+                        children: isInstalled ? 'Installed' : installing === r.id ? 'Installing…' : 'Install'
+                      })
+                    : null
+                ]
+              })
+            ]
+          })
+        })
+      })
+    ]
+  })
+}
+
 // ── Header / score strip ────────────────────────────────────────────────────
 
 function ScoreHeader({ data, onRescan, rescinding, onOpenSettings }) {
@@ -1500,6 +1717,8 @@ function AchievementsPage() {
     children: [
       jsx(ScoreHeader, { data, onRescan: rescan, rescinding, onOpenSettings: () => setSettingsOpen(true) }),
       filter !== 'history' && filter !== 'custom' ? jsx(MiniStats, { data }) : null,
+      filter !== 'history' && filter !== 'custom' ? jsx(ActivityHeatmap, { activity: data.activity }) : null,
+      filter !== 'history' && filter !== 'custom' ? jsx(RewardsStrip, { rewards: data.rewards }) : null,
       filter !== 'history' && filter !== 'custom' ? jsx(SessionBadges, {}) : null,
       filter === 'all' ? jsx(NextUpStrip, { items: nextUp }) : null,
       jsxs('div', {
