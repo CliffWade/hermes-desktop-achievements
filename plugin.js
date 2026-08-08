@@ -2078,7 +2078,7 @@ function AchievementPreviewPanel({ card }) {
   const pct = item.progress_pct ?? 0
 
   return jsxs('div', {
-    className: 'pointer-events-none fixed right-6 top-24 z-30 w-72 rounded-xl border border-(--ui-stroke-secondary) bg-(--ui-bg-primary) p-3 shadow-2xl',
+    className: 'pointer-events-none fixed right-6 top-24 z-30 w-72 rounded-xl border border-(--ui-stroke-secondary) bg-(--ui-bg-elevated) p-3 shadow-2xl',
     style: { borderLeft: `3px solid ${categoryColor(item.category)}` },
     children: [
       jsxs('div', {
