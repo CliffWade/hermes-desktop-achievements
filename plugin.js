@@ -1248,11 +1248,15 @@ function MiniStats({ data }) {
 function ActivityHeatmap({ activity }) {
   if (!activity || activity.length === 0) return null
 
+  // Show the last 6 months (182 days) — a 12-month window at ~5% activity
+  // reads as a sea of empty cells, and 52 thin bars hide the spikes.
+  const windowed = activity.slice(-182)
+
   // Roll days into weekly bars (Monday-start). Sparse data reads far better
   // as a compact bar strip than as a 365-cell grid that is 95% empty.
   const weeks = [] // { weekStart, label, sessions, tools, days }
   let current = null
-  for (const d of activity) {
+  for (const d of windowed) {
     const dt = new Date(d.date + 'T00:00:00')
     const dow = (dt.getDay() + 6) % 7 // Mon=0
     if (!current || dow === 0) {
@@ -1278,8 +1282,8 @@ function ActivityHeatmap({ activity }) {
     }
   }
 
-  const totalDays = activity.filter(d => d.sessions > 0).length
-  const totalTools = activity.reduce((n, d) => n + (d.tools || 0), 0)
+  const totalDays = windowed.filter(d => d.sessions > 0).length
+  const totalTools = windowed.reduce((n, d) => n + (d.tools || 0), 0)
 
   // Bar height: 4px minimum for any activity, scaled up to 44px.
   const barHeight = w => (w.tools > 0 ? Math.max(4, Math.round((w.tools / maxTools) * 44)) : 2)
@@ -1296,7 +1300,7 @@ function ActivityHeatmap({ activity }) {
           }),
           jsx('span', {
             className: 'text-[0.6875rem] text-(--ui-text-quaternary)',
-            children: `${totalDays} active days · ${totalTools.toLocaleString()} tool calls · last 12 months`
+            children: `${totalDays} active days · ${totalTools.toLocaleString()} tool calls · last 6 months`
           })
         ]
       }),
