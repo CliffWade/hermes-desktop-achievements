@@ -2239,7 +2239,7 @@ function QuestsStrip({ quests }) {
 
 const SECTION_DEFAULTS = {}
 
-function Section({ id, title, extra, children, defaultOpen = true }) {
+function Section({ id, title, extra, children, defaultOpen = true, color }) {
   const [open, setOpen] = useState(SECTION_DEFAULTS[id] !== undefined ? SECTION_DEFAULTS[id] : defaultOpen)
 
   useEffect(() => {
@@ -2282,12 +2282,20 @@ function Section({ id, title, extra, children, defaultOpen = true }) {
             className:
               'group flex items-center gap-1.5 text-left text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary) transition-colors hover:text-(--ui-text-primary)',
             children: [
+              color
+                ? jsx('span', {
+                    style: { background: color, opacity: 0.85 },
+                    className: 'h-3 w-1 shrink-0 rounded-full'
+                  })
+                : null,
               jsx(Codicon, {
                 name: open ? 'chevron-down' : 'chevron-right',
                 size: '0.7rem',
                 className: 'shrink-0 transition-transform'
               }),
-              jsx('span', { children: title })
+              color
+                ? jsx('span', { style: { color }, children: title })
+                : jsx('span', { children: title })
             ]
           }),
           extra
@@ -2868,6 +2876,7 @@ function AchievementsPage() {
         ? jsx(Section, {
             id: 'activity',
             title: 'Activity',
+            color: 'hsl(205 85% 55%)',
             extra: `${(data.activity || []).filter(d => d.sessions > 0).length} active days · last 6 months`,
             children: jsx(ActivityHeatmap, { activity: data.activity })
           })
@@ -2876,6 +2885,7 @@ function AchievementsPage() {
         ? jsx(Section, {
             id: 'rewards',
             title: 'Rewards',
+            color: 'hsl(45 90% 50%)',
             children: jsx(RewardsStrip, { rewards: data.rewards })
           })
         : null,
@@ -2883,6 +2893,7 @@ function AchievementsPage() {
         ? jsx(Section, {
             id: 'records',
             title: 'Records',
+            color: 'hsl(190 70% 48%)',
             children: jsx(RecordsStrip, { records: data.records })
           })
         : null,
@@ -2890,6 +2901,7 @@ function AchievementsPage() {
         ? jsx(Section, {
             id: 'goals',
             title: 'Goals',
+            color: 'hsl(150 55% 45%)',
             children: jsx(ChallengesStrip, { challenges: data.challenges, weekly: data.weekly })
           })
         : null,
@@ -2897,6 +2909,7 @@ function AchievementsPage() {
         ? jsx(Section, {
             id: 'quests',
             title: 'Quests',
+            color: 'hsl(250 55% 58%)',
             children: jsx(QuestsStrip, { quests: data.quests })
           })
         : null,
@@ -2904,6 +2917,7 @@ function AchievementsPage() {
         ? jsx(Section, {
             id: 'custom-goals',
             title: 'Custom goals',
+            color: 'hsl(0 70% 60%)',
             children: jsx(CustomGoalsSection, { data })
           })
         : null,
