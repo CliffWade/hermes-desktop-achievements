@@ -42,6 +42,8 @@ by the `hermes-achievements` dashboard plugin that ships with Hermes Agent.
 - **Badge wall export** — the full collection as an SVG poster from Export
 - **Collapsible sections** — every strip collapses to a header row with
   state remembered across reloads
+- **Quests tab** — all available quests with requirements, XP, and completion
+  dates; a "Recently completed" timeline shows the last 5 quests finished
 - **Quest + goal completion moments** — fanfare and toasts when quests and
   custom goals hit their targets
 - **Pin favorites** — pin any badge and it sorts to the top, persisted

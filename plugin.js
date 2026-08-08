@@ -58,7 +58,7 @@ let rest
 let storageRef = null
 
 const TIER_ORDER = ['Copper', 'Silver', 'Gold', 'Diamond', 'Olympian']
-const FILTERS = ['all', 'unlocked', 'discovered', 'secret', 'history', 'custom']
+const FILTERS = ['all', 'unlocked', 'discovered', 'secret', 'history', 'custom', 'quests']
 const UNLOCK_POLL_MS = 15_000
 
 const DEFAULT_SETTINGS = { confetti: true, sound: true, haptic: true, discordWebhook: '', nudges: true }
@@ -2397,7 +2397,105 @@ function ChallengesStrip({ challenges, weekly }) {
   })
 }
 
-// Custom metric goals section (goal-based custom badges).
+// ── Quests tab (all available quests + completion history) ─────────────────
+
+function QuestsTab({ data }) {
+  const quests = data?.quests || []
+  const recent = data?.recently_completed_quests || []
+
+  if (quests.length === 0) {
+    return jsx(EmptyState, {
+      title: 'No quests available',
+      description: 'Quests appear here once defined.'
+    })
+  }
+
+  return jsx('div', {
+    className: 'flex-1 overflow-y-auto p-6',
+    children: [
+      recent.length > 0
+        ? jsxs('div', {
+            className: 'mb-5',
+            children: [
+              jsx('div', {
+                className: 'mb-2 text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary)',
+                children: 'Recently completed'
+              }),
+              jsx('ol', {
+                className: 'relative space-y-3 border-l border-(--ui-stroke-secondary) pl-5',
+                children: recent.map(q =>
+                  jsxs('li', {
+                    key: q.id,
+                    className: 'relative',
+                    children: [
+                      jsx('span', {
+                        className:
+                          'absolute -left-[26px] top-1 h-2.5 w-2.5 rounded-full bg-(--ui-ok) ring-4 ring-(--ui-bg-primary)'
+                      }),
+                      jsxs('div', {
+                        className: 'flex items-center justify-between gap-2',
+                        children: [
+                          jsx('span', { className: 'text-sm font-medium', children: q.name }),
+                          jsx('span', {
+                            className: 'shrink-0 text-[0.6875rem] text-(--ui-text-quaternary)',
+                            children: `${new Date((q.completed_at || 0) * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · +${q.xp} XP`
+                          })
+                        ]
+                      }),
+                      jsx('div', { className: 'mt-0.5 text-xs text-(--ui-text-tertiary)', children: q.description })
+                    ]
+                  })
+                )
+              })
+            ]
+          })
+        : null,
+      jsx('div', {
+        className: 'mb-2 text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary)',
+        children: `All quests (${quests.length})`
+      }),
+      jsxs('div', {
+        className: 'flex flex-wrap gap-2',
+        style: { display: 'flex', flexWrap: 'wrap' },
+        children: quests.map(q =>
+          jsxs('div', {
+            key: q.id,
+            className: cn(
+              'flex flex-col rounded-lg border p-3',
+              q.done
+                ? 'border-(--ui-ok)/50 bg-(--ui-ok)/10'
+                : 'border-(--ui-stroke-secondary) bg-(--ui-bg-secondary)'
+            ),
+            style: { width: 'calc((100% - 32px) / 5)' },
+            children: [
+              jsxs('div', {
+                className: 'flex items-center justify-between gap-1',
+                children: [
+                  jsx('span', { className: 'truncate text-[0.8125rem] font-medium leading-tight', children: q.name }),
+                  jsx('span', {
+                    className: cn(
+                      'shrink-0 text-[0.625rem] font-medium',
+                      q.done ? 'text-(--ui-ok)' : 'text-(--ui-text-quaternary)'
+                    ),
+                    children: q.done ? '✓ Done' : `+${q.xp} XP`
+                  })
+                ]
+              }),
+              jsx('div', { className: 'mt-1 text-xs leading-snug text-(--ui-text-tertiary)', children: q.description }),
+              q.done && q.completed_at
+                ? jsx('div', {
+                    className: 'mt-2 text-[0.6875rem] text-(--ui-text-quaternary)',
+                    children: `Completed ${new Date(q.completed_at * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                  })
+                : null
+            ]
+          })
+        )
+      })
+    ]
+  })
+}
+
 function CustomGoalsSection({ data }) {
   const [name, setName] = useState('')
   const [metric, setMetric] = useState('session_count')
@@ -2666,6 +2764,11 @@ function AchievementsPage() {
     .sort((x, y) => (y.progress_pct ?? 0) - (x.progress_pct ?? 0))
     .slice(0, 3)
 
+  // Main overview sections (header, activity, rewards, records, goals,
+  // quests strip, custom-goals) render only on the "all"/state tabs — not on
+  // the history, custom-goals-only, or quests-list views.
+  const isMain = filter !== 'history' && filter !== 'custom' && filter !== 'quests'
+
   return jsxs('div', {
     className: 'flex h-full flex-col overflow-y-auto',
     // Reserve a right gutter (320px ≈ w-72 panel + right-6 + gap) so the
@@ -2674,11 +2777,11 @@ function AchievementsPage() {
     style: { paddingRight: 320 },
     children: [
       jsx(ScoreHeader, { data, onRescan: rescan, rescinding, onOpenSettings: () => setSettingsOpen(true) }),
-      filter !== 'history' && filter !== 'custom'
+      isMain
         ? jsx(CategoryChips, { categories: data.categories, active: catFilter, onSelect: selectCat })
         : null,
-      filter !== 'history' && filter !== 'custom' ? jsx(MiniStats, { data }) : null,
-      filter !== 'history' && filter !== 'custom'
+      isMain ? jsx(MiniStats, { data }) : null,
+      isMain
         ? jsx(Section, {
             id: 'activity',
             title: 'Activity',
@@ -2686,42 +2789,42 @@ function AchievementsPage() {
             children: jsx(ActivityHeatmap, { activity: data.activity })
           })
         : null,
-      filter !== 'history' && filter !== 'custom'
+      isMain
         ? jsx(Section, {
             id: 'rewards',
             title: 'Rewards',
             children: jsx(RewardsStrip, { rewards: data.rewards })
           })
         : null,
-      filter !== 'history' && filter !== 'custom'
+      isMain
         ? jsx(Section, {
             id: 'records',
             title: 'Records',
             children: jsx(RecordsStrip, { records: data.records })
           })
         : null,
-      filter !== 'history' && filter !== 'custom'
+      isMain
         ? jsx(Section, {
             id: 'goals',
             title: 'Goals',
             children: jsx(ChallengesStrip, { challenges: data.challenges, weekly: data.weekly })
           })
         : null,
-      filter !== 'history' && filter !== 'custom'
+      isMain
         ? jsx(Section, {
             id: 'quests',
             title: 'Quests',
             children: jsx(QuestsStrip, { quests: data.quests })
           })
         : null,
-      filter !== 'history' && filter !== 'custom'
+      isMain
         ? jsx(Section, {
             id: 'custom-goals',
             title: 'Custom goals',
             children: jsx(CustomGoalsSection, { data })
           })
         : null,
-      filter !== 'history' && filter !== 'custom' ? jsx(SessionBadges, {}) : null,
+      isMain ? jsx(SessionBadges, {}) : null,
       filter === 'all' ? jsx(NextUpStrip, { items: nextUp, onHover: setHoverItem, onLeave: () => setHoverItem(null) }) : null,
       jsxs('div', {
         className: 'flex flex-wrap items-center gap-2 border-b border-(--ui-stroke-secondary) px-6 py-2',
@@ -2756,7 +2859,7 @@ function AchievementsPage() {
               })
             })
           }),
-          filter !== 'history' && filter !== 'custom'
+          isMain
             ? jsxs('div', {
                 className: 'ml-auto flex items-center gap-2',
                 children: [
@@ -2798,7 +2901,9 @@ function AchievementsPage() {
         ? jsx(HistoryTab, {})
         : filter === 'custom'
           ? jsx(CustomTab, {})
-          : sorted.length === 0
+          : filter === 'quests'
+            ? jsx(QuestsTab, { data })
+            : sorted.length === 0
             ? jsx(EmptyState, {
                 title: 'No achievements here',
                 description: query
