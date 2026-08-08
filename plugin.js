@@ -1451,10 +1451,15 @@ function NextUpStrip({ items }) {
         children: items.map(a =>
           jsxs('div', {
             key: a.id,
-            className: 'flex flex-col rounded-lg border border-(--ui-stroke-secondary) bg-(--ui-bg-secondary) p-2',
+            className: 'flex flex-col rounded-lg border border-(--ui-stroke-secondary) p-2',
             // Inline width (6 per row at 8px gap) — purge-proof, same
-            // density as the achievement grid below.
-            style: { width: 'calc((100% - 40px) / 6)' },
+            // density as the achievement grid below. Category identity
+            // matches the main cards: left accent + tinted fill.
+            style: {
+              width: 'calc((100% - 40px) / 6)',
+              borderLeft: `3px solid ${categoryColor(a.category)}`,
+              backgroundColor: categoryBg(a.category)
+            },
             children: [
               jsxs('div', {
                 className: 'flex items-center justify-between gap-1',
@@ -1475,9 +1480,14 @@ function NextUpStrip({ items }) {
                   })
                 ]
               }),
+              jsx('span', {
+                className: 'mt-1 inline-block text-[0.5625rem] font-medium uppercase tracking-wide',
+                style: { color: categoryColor(a.category) },
+                children: a.category
+              }),
               a.next_tier
                 ? jsx('div', {
-                    className: 'mt-1 flex items-center justify-between gap-1 text-[0.5625rem] text-(--ui-text-quaternary)',
+                    className: 'mt-0.5 flex items-center justify-between gap-1 text-[0.5625rem] text-(--ui-text-quaternary)',
                     children: [
                       jsx('span', { className: 'truncate', children: `next: ${a.next_tier} · ${a.next_threshold}` }),
                       a.eta_days
