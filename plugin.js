@@ -88,6 +88,40 @@ function progressBarClass(state) {
   return 'bg-(--ui-text-tertiary)'
 }
 
+// Category identity colors. Each category gets a hue so the grid reads as a
+// patchwork instead of a wall of identical boxes. Colors are used as:
+//   - a 3px left border on every card (categoryColor(cat) → border style)
+//   - a soft tinted card background (categoryBg(cat) → rgba fill)
+//   - the milestone icon color (text)
+// Values stay close to the app's neutral palette but separated per hue.
+const CATEGORY_COLORS = {
+  'Agent Autonomy': 'hsl(250 55% 58%)',   // violet
+  'Debugging Chaos': 'hsl(15 75% 55%)',   // ember orange
+  'Hermes Native': 'hsl(205 85% 55%)',    // sky blue
+  'Lifestyle': 'hsl(150 55% 45%)',        // green
+  'Model Lore': 'hsl(330 70% 55%)',       // magenta
+  'Research/Web': 'hsl(275 60% 55%)',     // purple
+  'Sets': 'hsl(45 90% 50%)',              // gold
+  'Tool Mastery': 'hsl(190 70% 48%)',     // teal
+  'Vibe Coding': 'hsl(0 70% 60%)'         // coral red
+}
+const DEFAULT_CATEGORY_COLOR = 'hsl(220 15% 55%)'
+
+function categoryColor(cat) {
+  return CATEGORY_COLORS[cat] || DEFAULT_CATEGORY_COLOR
+}
+
+// Soft background tint from a category hue (10% alpha fill).
+// hsl(250 55% 58%) → hsl(250 55% 58% / 0.09) via the slash-alpha syntax.
+function categoryBg(cat) {
+  return categoryColor(cat).replace(')', ' / 0.09)')
+}
+
+// Tinted icon color (full alpha).
+function categoryIcon(cat) {
+  return categoryColor(cat)
+}
+
 // ── Celebration: chime + haptic + confetti (settings-gated) ────────────────
 
 let _audioCtx = null
@@ -1526,10 +1560,16 @@ function AchievementCard({ item }) {
     className: cn(
       'relative flex flex-col rounded-lg border p-2.5',
       item.unlocked
-        ? 'border-(--ui-stroke-strong) bg-(--ui-bg-tertiary)'
-        : 'border-(--ui-stroke-secondary) bg-(--ui-bg-secondary)',
+        ? 'border-(--ui-stroke-strong)'
+        : 'border-(--ui-stroke-secondary)',
       isSecret && 'opacity-70'
     ),
+    // Category identity: 3px left accent + soft tinted fill. Unlocked cards
+    // keep their tint but the border goes strong so state stays readable.
+    style: {
+      borderLeft: `3px solid ${categoryColor(item.category)}`,
+      backgroundColor: categoryBg(item.category)
+    },
     children: [
       jsxs('div', {
         className: 'flex items-start justify-between gap-1.5',
@@ -1540,7 +1580,8 @@ function AchievementCard({ item }) {
               jsx(Codicon, {
                 name: 'milestone',
                 size: '0.85rem',
-                className: cn('shrink-0', item.unlocked ? 'text-(--ui-accent)' : 'text-(--ui-text-tertiary)')
+                style: { color: categoryIcon(item.category) },
+                className: cn('shrink-0', item.unlocked && 'opacity-90')
               }),
               jsx('span', {
                 className: 'truncate text-[0.8125rem] font-medium',
@@ -1605,6 +1646,11 @@ function AchievementCard({ item }) {
       jsx('p', {
         className: 'mt-1.5 line-clamp-2 text-[0.6875rem] leading-snug text-(--ui-text-tertiary)',
         children: isSecret ? 'Secret achievement — hidden until the first matching signal appears.' : item.description
+      }),
+      jsx('span', {
+        className: 'mt-1 inline-block text-[0.5625rem] font-medium uppercase tracking-wide',
+        style: { color: categoryColor(item.category) },
+        children: item.category
       }),
       jsxs('div', {
         className: 'mt-1.5',
