@@ -1242,10 +1242,10 @@ function RewardsStrip({ rewards }) {
   }[id] || '🎁')
 
   return jsxs('div', {
-    className: 'border-b border-(--ui-stroke-secondary) px-6 py-4',
+    className: 'border-b border-(--ui-stroke-secondary) px-6 py-3',
     children: [
       jsx('div', {
-        className: 'mb-2 text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary)',
+        className: 'mb-1.5 text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary)',
         children: 'Rewards'
       }),
       jsxs('div', {
@@ -1257,7 +1257,7 @@ function RewardsStrip({ rewards }) {
           return jsxs('div', {
             key: r.id,
             className: cn(
-              'rounded-lg border p-2.5 transition-colors',
+              'rounded-lg border p-2 transition-colors',
               r.unlocked
                 ? 'border-(--ui-accent)/40 bg-(--ui-bg-secondary)'
                 : 'border-(--ui-stroke-secondary) bg-(--ui-bg-tertiary)'
@@ -1266,35 +1266,35 @@ function RewardsStrip({ rewards }) {
             style: { width: 'calc((100% - 24px) / 4)' },
             children: [
               jsxs('div', {
-                className: 'flex items-center justify-between gap-2',
+                className: 'flex items-center justify-between gap-1.5',
                 children: [
                   jsxs('div', {
-                    className: 'flex items-center gap-2',
+                    className: 'flex min-w-0 items-center gap-1.5',
                     children: [
-                      jsx('span', { className: 'text-base', children: icon }),
-                      jsx('span', { className: 'truncate text-xs font-medium', children: r.name })
+                      jsx('span', { className: 'text-sm', children: icon }),
+                      jsx('span', { className: 'truncate text-[0.8125rem] font-medium', children: r.name })
                     ]
                   }),
                   r.unlocked
-                    ? jsx('span', { className: 'shrink-0 text-[0.6875rem] text-(--ui-accent)', children: 'Unlocked' })
-                    : jsx('span', { className: 'shrink-0 text-[0.6875rem] text-(--ui-text-quaternary)', children: 'Locked' })
+                    ? jsx('span', { className: 'shrink-0 text-[0.625rem] text-(--ui-accent)', children: 'Unlocked' })
+                    : jsx('span', { className: 'shrink-0 text-[0.625rem] text-(--ui-text-quaternary)', children: 'Locked' })
                 ]
               }),
               jsx('p', {
-                className: 'mt-1.5 min-h-[2rem] text-[0.6875rem] leading-snug text-(--ui-text-tertiary)',
+                className: 'mt-1 line-clamp-2 text-[0.6875rem] leading-snug text-(--ui-text-tertiary)',
                 children: r.description
               }),
               jsxs('div', {
-                className: 'mt-2 flex items-center justify-between gap-2',
+                className: 'mt-1.5 flex items-center justify-between gap-2',
                 children: [
                   jsx('span', {
-                    className: 'truncate text-[0.6875rem] tabular-nums text-(--ui-text-quaternary)',
+                    className: 'truncate text-[0.625rem] tabular-nums text-(--ui-text-quaternary)',
                     children: r.progress || 'not started'
                   }),
                   r.unlocked
                     ? jsx('button', {
                         className: cn(
-                          'shrink-0 rounded-md px-2 py-1 text-[0.6875rem] font-medium transition-colors',
+                          'shrink-0 rounded-md px-1.5 py-0.5 text-[0.625rem] font-medium transition-colors',
                           isInstalled
                             ? 'text-(--ui-text-quaternary)'
                             : 'bg-(--ui-accent) text-(--ui-bg) hover:brightness-110'
@@ -1403,10 +1403,10 @@ function NextUpStrip({ items }) {
   if (!items || items.length === 0) return null
 
   return jsxs('div', {
-    className: 'border-b border-(--ui-stroke-secondary) px-6 py-4',
+    className: 'border-b border-(--ui-stroke-secondary) px-6 py-3',
     children: [
       jsx('div', {
-        className: 'mb-2 text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary)',
+        className: 'mb-1.5 text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary)',
         children: 'Next up'
       }),
       jsxs('div', {
@@ -1415,22 +1415,22 @@ function NextUpStrip({ items }) {
         children: items.map(a =>
           jsxs('div', {
             key: a.id,
-            className: 'rounded-lg border border-(--ui-stroke-secondary) bg-(--ui-bg-secondary) p-2.5',
+            className: 'rounded-lg border border-(--ui-stroke-secondary) bg-(--ui-bg-secondary) p-2',
             // Inline width (4 per row at 8px gap) — purge-proof.
             style: { width: 'calc((100% - 24px) / 4)' },
             children: [
               jsxs('div', {
                 className: 'flex items-center justify-between gap-2',
                 children: [
-                  jsx('span', { className: 'truncate text-xs font-medium', children: a.name }),
+                  jsx('span', { className: 'truncate text-[0.8125rem] font-medium', children: a.name }),
                   jsx('span', {
-                    className: 'shrink-0 text-[0.6875rem] tabular-nums text-(--ui-text-tertiary)',
+                    className: 'shrink-0 text-[0.625rem] tabular-nums text-(--ui-text-tertiary)',
                     children: `${a.progress_pct ?? 0}%`
                   })
                 ]
               }),
               jsxs('div', {
-                className: 'mt-2 h-1 w-full overflow-hidden rounded-full bg-(--ui-bg-quaternary)',
+                className: 'mt-1.5 h-1 w-full overflow-hidden rounded-full bg-(--ui-bg-quaternary)',
                 children: [
                   jsx('div', {
                     className: 'h-full rounded-full bg-(--ui-accent)',
@@ -1440,7 +1440,7 @@ function NextUpStrip({ items }) {
               }),
               a.next_tier
                 ? jsx('div', {
-                    className: 'mt-1.5 flex items-center justify-between gap-2 text-[0.6875rem] text-(--ui-text-quaternary)',
+                    className: 'mt-1 flex items-center justify-between gap-2 text-[0.625rem] text-(--ui-text-quaternary)',
                     children: [
                       jsx('span', { children: `next: ${a.next_tier} · ${a.next_threshold}` }),
                       a.eta_days
