@@ -2200,6 +2200,10 @@ function AchievementsPage() {
 
   return jsxs('div', {
     className: 'flex h-full min-h-0 flex-col',
+    // Reserve a right gutter (320px ≈ w-72 panel + right-6 + gap) so the
+    // fixed preview panel always floats over empty space, never over the
+    // header/chips/grid content. Same docked-preview idea as the theme pack.
+    style: { paddingRight: 320 },
     children: [
       jsx(ScoreHeader, { data, onRescan: rescan, rescinding, onOpenSettings: () => setSettingsOpen(true) }),
       filter !== 'history' && filter !== 'custom'
