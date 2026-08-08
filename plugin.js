@@ -842,8 +842,9 @@ function HistoryTab() {
           className: 'relative',
           children: [
             jsx('span', {
+              style: { left: -26 },
               className:
-                'absolute -left-[26px] top-1 h-2.5 w-2.5 rounded-full bg-(--ui-accent) ring-4 ring-(--ui-bg-primary)'
+                'absolute top-1 h-2.5 w-2.5 rounded-full bg-(--ui-accent) ring-4 ring-(--ui-bg-primary)'
             }),
             jsxs('div', {
               className: 'flex flex-wrap items-center gap-2',
@@ -2429,8 +2430,9 @@ function QuestsTab({ data }) {
                     className: 'relative',
                     children: [
                       jsx('span', {
+                        style: { left: -26 },
                         className:
-                          'absolute -left-[26px] top-1 h-2.5 w-2.5 rounded-full bg-(--ui-ok) ring-4 ring-(--ui-bg-primary)'
+                          'absolute top-1 h-2.5 w-2.5 rounded-full bg-(--ui-ok) ring-4 ring-(--ui-bg-primary)'
                       }),
                       jsxs('div', {
                         className: 'flex items-center justify-between gap-2',
