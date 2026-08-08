@@ -1757,7 +1757,7 @@ function ScoreHeader({ data, onRescan, rescinding, onOpenSettings }) {
 
 // ── Next up strip ───────────────────────────────────────────────────────────
 
-function NextUpStrip({ items }) {
+function NextUpStrip({ items, onHover, onLeave }) {
   if (!items || items.length === 0) return null
 
   return jsxs('div', {
@@ -1773,7 +1773,11 @@ function NextUpStrip({ items }) {
         children: items.map(a =>
           jsxs('div', {
             key: a.id,
-            className: 'flex flex-col rounded-lg border border-(--ui-stroke-secondary) p-2',
+            className: 'relative flex flex-col rounded-lg border border-(--ui-stroke-secondary) p-2',
+            onMouseEnter: () => onHover && onHover(a),
+            onMouseLeave: () => onLeave && onLeave(),
+            onFocus: () => onHover && onHover(a),
+            onBlur: () => onLeave && onLeave(),
             // Inline width (6 per row at 8px gap) — purge-proof, same
             // density as the achievement grid below. Category identity
             // matches the main cards: left accent + tinted fill.
@@ -2718,7 +2722,7 @@ function AchievementsPage() {
           })
         : null,
       filter !== 'history' && filter !== 'custom' ? jsx(SessionBadges, {}) : null,
-      filter === 'all' ? jsx(NextUpStrip, { items: nextUp }) : null,
+      filter === 'all' ? jsx(NextUpStrip, { items: nextUp, onHover: setHoverItem, onLeave: () => setHoverItem(null) }) : null,
       jsxs('div', {
         className: 'flex flex-wrap items-center gap-2 border-b border-(--ui-stroke-secondary) px-6 py-2',
         children: [
