@@ -1248,56 +1248,44 @@ function MiniStats({ data }) {
 function ActivityHeatmap({ activity }) {
   if (!activity || activity.length === 0) return null
 
-  // Find the max tools-per-day for intensity scaling (0 → empty, 4 levels).
-  const max = Math.max(1, ...activity.map(d => d.tools || 0))
-  const levels = ['bg-(--ui-bg-quaternary)', 'bg-(--ui-accent)/25', 'bg-(--ui-accent)/55', 'bg-(--ui-accent)/80', 'bg-(--ui-accent)']
-  const levelFor = d => {
-    if (!d.sessions) return 0
-    const ratio = (d.tools || 0) / max
-    if (ratio <= 0) return 0
-    if (ratio < 0.25) return 1
-    if (ratio < 0.5) return 2
-    if (ratio < 0.75) return 3
-    return 4
+  // Roll days into weekly bars (Monday-start). Sparse data reads far better
+  // as a compact bar strip than as a 365-cell grid that is 95% empty.
+  const weeks = [] // { weekStart, label, sessions, tools, days }
+  let current = null
+  for (const d of activity) {
+    const dt = new Date(d.date + 'T00:00:00')
+    const dow = (dt.getDay() + 6) % 7 // Mon=0
+    if (!current || dow === 0) {
+      current = { weekStart: d.date, sessions: 0, tools: 0, days: 0 }
+      weeks.push(current)
+    }
+    current.sessions += d.sessions || 0
+    current.tools += d.tools || 0
+    if (d.sessions > 0) current.days += 1
   }
+  const maxTools = Math.max(1, ...weeks.map(w => w.tools))
 
-  const weekdayLabels = ['Mon', 'Wed', 'Fri']
-  const monthLabels = []
+  // Month labels: mark the first week whose month differs from the previous.
+  const monthMarks = []
   {
     let last = null
-    for (const d of activity) {
-      const dt = new Date(d.date + 'T00:00:00')
-      const m = dt.toLocaleDateString('en-US', { month: 'short' })
+    for (const w of weeks) {
+      const m = new Date(w.weekStart + 'T00:00:00').toLocaleDateString('en-US', { month: 'short' })
       if (m !== last) {
-        monthLabels.push({ m, date: d.date })
+        monthMarks.push({ m, weekStart: w.weekStart })
         last = m
       }
     }
   }
 
-  // Group by week (columns). Day-of-week from date; Monday-first.
-  const weeks = []
-  for (const d of activity) {
-    const dt = new Date(d.date + 'T00:00:00')
-    const dow = (dt.getDay() + 6) % 7 // Mon=0 ... Sun=6
-    let week = weeks[weeks.length - 1]
-    if (!week || week.length >= 7) {
-      week = []
-      weeks.push(week)
-    }
-    // Pad to the day-of-week so each week column aligns.
-    while (week.length < dow) week.push(null)
-    week.push(d)
-  }
-  // Pad the last week to full height.
-  const lastWeek = weeks[weeks.length - 1]
-  if (lastWeek) while (lastWeek.length < 7) lastWeek.push(null)
-
   const totalDays = activity.filter(d => d.sessions > 0).length
   const totalTools = activity.reduce((n, d) => n + (d.tools || 0), 0)
 
+  // Bar height: 4px minimum for any activity, scaled up to 44px.
+  const barHeight = w => (w.tools > 0 ? Math.max(4, Math.round((w.tools / maxTools) * 44)) : 2)
+
   return jsxs('div', {
-    className: 'border-b border-(--ui-stroke-secondary) px-6 py-4',
+    className: 'border-b border-(--ui-stroke-secondary) px-6 py-3',
     children: [
       jsxs('div', {
         className: 'mb-2 flex items-baseline justify-between',
@@ -1313,38 +1301,32 @@ function ActivityHeatmap({ activity }) {
         ]
       }),
       jsxs('div', {
-        className: 'overflow-x-auto',
+        className: 'relative',
         children: [
           jsxs('div', {
-            className: 'flex gap-1',
-            children: [
-              jsxs('div', {
-                className: 'flex flex-col justify-between py-0.5 pr-1 text-[0.625rem] text-(--ui-text-quaternary)',
-                children: [
-                  jsx('span', { children: 'Mon' }),
-                  jsx('span', { children: 'Wed' }),
-                  jsx('span', { children: 'Fri' })
-                ]
-              }),
-              jsxs('div', {
-                className: 'flex gap-[3px]',
-                children: weeks.map((week, wi) =>
-                  jsx('div', {
-                    key: wi,
-                    className: 'flex flex-col gap-[3px]',
-                    children: week.map((d, di) =>
-                      d === null
-                        ? jsx('div', { key: di, className: 'h-2.5 w-2.5 rounded-[2px] bg-transparent' })
-                        : jsx('div', {
-                            key: di,
-                            title: `${d.date}: ${d.sessions} session${d.sessions === 1 ? '' : 's'}, ${d.tools} tool calls`,
-                            className: cn('h-2.5 w-2.5 rounded-[2px]', levels[levelFor(d)])
-                          })
-                    )
-                  })
-                )
+            className: 'flex items-end gap-[2px]',
+            children: weeks.map((w, wi) =>
+              jsx('div', {
+                key: wi,
+                title: `Week of ${w.weekStart}: ${w.tools} tool calls · ${w.sessions} session${w.sessions === 1 ? '' : 's'}${w.days > 1 ? ` · ${w.days} active days` : ''}`,
+                className: cn(
+                  'min-w-[3px] flex-1 rounded-sm',
+                  w.tools > 0 ? 'bg-(--ui-accent)' : 'bg-(--ui-bg-quaternary)'
+                ),
+                style: { height: barHeight(w) }
               })
-            ]
+            )
+          }),
+          jsxs('div', {
+            className: 'mt-1 flex gap-[2px] text-[0.5625rem] text-(--ui-text-quaternary)',
+            children: weeks.map((w, wi) => {
+              const mark = monthMarks.find(m => m.weekStart === w.weekStart)
+              return jsx('div', {
+                key: wi,
+                className: 'min-w-[3px] flex-1 whitespace-nowrap overflow-hidden',
+                children: mark ? mark.m : ''
+              })
+            })
           })
         ]
       })
