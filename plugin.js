@@ -1795,22 +1795,33 @@ function AchievementCard({ item, onCatClick }) {
   })
 }
 
-// ── Achievement hover popover ───────────────────────────────────────────────
+// ── Achievement preview panel ───────────────────────────────────────────────
+// Docked to the right edge (mirrors the theme pack's PreviewPanel) so hover
+// details never cover the grid. Fixed position escapes the scroll container.
 
-function AchievementHoverCard({ card }) {
-  if (!card) return null
-  const { item, x, y, align } = card
+function AchievementPreviewPanel({ card }) {
+  if (!card) {
+    return jsxs('div', {
+      className: 'pointer-events-none fixed right-6 top-24 z-30 w-72 rounded-xl border border-(--ui-stroke-secondary) bg-(--ui-bg-primary) p-3 shadow-2xl',
+      children: [
+        jsx('span', {
+          className: 'text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary)',
+          children: 'Preview'
+        }),
+        jsx('p', {
+          className: 'mt-1.5 text-[0.6875rem] leading-relaxed text-(--ui-text-quaternary)',
+          children: 'Hover an achievement to see what it takes.'
+        })
+      ]
+    })
+  }
+  const item = card
   const isSecret = item.state === 'secret'
   const pct = item.progress_pct ?? 0
 
   return jsxs('div', {
-    className: 'pointer-events-none fixed z-50 w-72 rounded-lg border border-(--ui-stroke-strong) bg-(--ui-bg-primary) p-3 shadow-lg',
-    style: {
-      left: x,
-      top: y,
-      transform: align === 'right' ? 'translateX(-100%)' : undefined,
-      borderLeft: `3px solid ${categoryColor(item.category)}`
-    },
+    className: 'pointer-events-none fixed right-6 top-24 z-30 w-72 rounded-xl border border-(--ui-stroke-secondary) bg-(--ui-bg-primary) p-3 shadow-2xl',
+    style: { borderLeft: `3px solid ${categoryColor(item.category)}` },
     children: [
       jsxs('div', {
         className: 'flex items-center justify-between gap-2',
@@ -2130,28 +2141,9 @@ function AchievementsPage() {
   const [q, setQ] = useState('')
   const [sort, setSort] = useState('progress')
   const [catFilter, setCatFilter] = useState(null)
-  const [hoverCard, setHoverCard] = useState(null)
+  const [hoverItem, setHoverItem] = useState(null)
   const [rescinding, setRescinding] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-
-  // Position the hover popover near the card, clamped to the viewport.
-  const showHover = (a, e) => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    const W = 288 // w-72
-    let x = rect.left + 8
-    let align = 'left'
-    if (x + W > window.innerWidth - 8) {
-      x = rect.right - 8
-      align = 'right'
-    }
-    // Prefer below the card; flip above when there's not enough room.
-    const estHeight = 220
-    let y = rect.bottom + 8
-    if (y + estHeight > window.innerHeight - 8) {
-      y = Math.max(8, rect.top - estHeight - 8)
-    }
-    setHoverCard({ item: a, x, y, align })
-  }
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['hermes-achievements', 'all'],
@@ -2246,7 +2238,7 @@ function AchievementsPage() {
                 ),
                 type: 'button',
                 onClick: () => {
-                  setHoverCard(null)
+                  setHoverItem(null)
                   setFilter(f)
                 },
                 children: count === null ? f : `${f} (${count})`
@@ -2308,10 +2300,10 @@ function AchievementsPage() {
                   jsx('div', {
                     key: a.id,
                     className: 'relative',
-                    onMouseEnter: e => showHover(a, e),
-                    onMouseLeave: () => setHoverCard(null),
-                    onFocus: e => showHover(a, e),
-                    onBlur: () => setHoverCard(null),
+                    onMouseEnter: () => setHoverItem(a),
+                    onMouseLeave: () => setHoverItem(null),
+                    onFocus: () => setHoverItem(a),
+                    onBlur: () => setHoverItem(null),
                     // Inline width (6 per row at 8px gap) because the app's
                     // Tailwind build only ships grid-cols-1/2/4/6 — plugin
                     // grid classes get purged. Same trick as the theme pack.
@@ -2327,7 +2319,7 @@ function AchievementsPage() {
                 )
               }),
       jsx(SettingsPanel, { open: settingsOpen, onClose: () => setSettingsOpen(false) }),
-      jsx(AchievementHoverCard, { card: hoverCard })
+      jsx(AchievementPreviewPanel, { card: hoverItem })
     ]
   })
 }
