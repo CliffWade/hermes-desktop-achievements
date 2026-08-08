@@ -1372,7 +1372,7 @@ function ShareCardOverlay({ item, onClose }) {
     onClick: onClose,
     children: [
       jsxs('div', {
-        className: 'flex flex-col gap-4 rounded-xl border border-(--ui-stroke-secondary) bg-(--ui-bg-primary) p-5 shadow-2xl',
+        className: 'flex flex-col gap-4 rounded-xl border border-(--ui-stroke-secondary) bg-(--ui-bg-elevated) p-5 shadow-2xl',
         onClick: e => e.stopPropagation(),
         children: [
           jsx('canvas', {
