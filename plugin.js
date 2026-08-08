@@ -2369,7 +2369,7 @@ function AchievementsPage() {
     .slice(0, 3)
 
   return jsxs('div', {
-    className: 'flex h-full min-h-0 flex-col',
+    className: 'flex h-full flex-col overflow-y-auto',
     // Reserve a right gutter (320px ≈ w-72 panel + right-6 + gap) so the
     // fixed preview panel always floats over empty space, never over the
     // header/chips/grid content. Same docked-preview idea as the theme pack.
@@ -2470,7 +2470,7 @@ function AchievementsPage() {
                   : 'Nothing in this state yet — keep using Hermes.'
               })
             : jsx('div', {
-                className: 'flex flex-wrap content-start gap-2 overflow-y-auto p-4',
+                className: 'flex flex-wrap content-start gap-2 p-4',
                 style: { display: 'flex', flexWrap: 'wrap' },
                 children: sorted.map(a =>
                   jsx('div', {
