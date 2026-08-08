@@ -1249,18 +1249,21 @@ function RewardsStrip({ rewards }) {
         children: 'Rewards'
       }),
       jsxs('div', {
-        className: 'grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4',
+        className: 'flex flex-wrap gap-2',
+        style: { display: 'flex', flexWrap: 'wrap' },
         children: rewards.map(r => {
           const isInstalled = !!installed[r.id]
           const icon = rewardIcon(r.id)
           return jsxs('div', {
             key: r.id,
             className: cn(
-              'rounded-lg border p-3 transition-colors',
+              'rounded-lg border p-2.5 transition-colors',
               r.unlocked
                 ? 'border-(--ui-accent)/40 bg-(--ui-bg-secondary)'
                 : 'border-(--ui-stroke-secondary) bg-(--ui-bg-tertiary)'
             ),
+            // Inline width (4 per row at 8px gap) — purge-proof.
+            style: { width: 'calc((100% - 24px) / 4)' },
             children: [
               jsxs('div', {
                 className: 'flex items-center justify-between gap-2',
@@ -1407,11 +1410,14 @@ function NextUpStrip({ items }) {
         children: 'Next up'
       }),
       jsxs('div', {
-        className: 'grid grid-cols-1 gap-2 sm:grid-cols-3',
+        className: 'flex flex-wrap gap-2',
+        style: { display: 'flex', flexWrap: 'wrap' },
         children: items.map(a =>
           jsxs('div', {
             key: a.id,
-            className: 'rounded-lg border border-(--ui-stroke-secondary) bg-(--ui-bg-secondary) p-3',
+            className: 'rounded-lg border border-(--ui-stroke-secondary) bg-(--ui-bg-secondary) p-2.5',
+            // Inline width (4 per row at 8px gap) — purge-proof.
+            style: { width: 'calc((100% - 24px) / 4)' },
             children: [
               jsxs('div', {
                 className: 'flex items-center justify-between gap-2',
@@ -1515,7 +1521,7 @@ function AchievementCard({ item }) {
 
   return jsxs('div', {
     className: cn(
-      'flex flex-col rounded-lg border p-4',
+      'relative flex flex-col rounded-lg border p-2.5',
       item.unlocked
         ? 'border-(--ui-stroke-strong) bg-(--ui-bg-tertiary)'
         : 'border-(--ui-stroke-secondary) bg-(--ui-bg-secondary)',
@@ -1523,66 +1529,67 @@ function AchievementCard({ item }) {
     ),
     children: [
       jsxs('div', {
-        className: 'flex items-start justify-between gap-2',
+        className: 'flex items-start justify-between gap-1.5',
         children: [
           jsxs('div', {
-            className: 'flex min-w-0 items-center gap-2',
+            className: 'flex min-w-0 items-center gap-1.5',
             children: [
               jsx(Codicon, {
                 name: 'milestone',
+                size: '0.85rem',
                 className: cn('shrink-0', item.unlocked ? 'text-(--ui-accent)' : 'text-(--ui-text-tertiary)')
               }),
               jsx('span', {
-                className: 'truncate text-sm font-medium',
+                className: 'truncate text-[0.8125rem] font-medium',
                 children: isSecret ? '???' : item.name
               })
             ]
           }),
           jsxs('div', {
-            className: 'flex shrink-0 items-center gap-1.5',
+            className: 'flex shrink-0 items-center gap-1',
             children: [
               isNew
                 ? jsx(Badge, {
                     variant: 'outline',
-                    className: 'shrink-0 text-[0.6875rem] text-(--ui-accent)',
+                    className: 'shrink-0 text-[0.625rem] text-(--ui-accent)',
                     children: 'NEW'
                   })
                 : null,
               item.tier
                 ? jsx(Badge, {
                     variant: 'outline',
-                    className: cn('shrink-0 text-[0.6875rem]', tierBadgeClass(item.tier)),
+                    className: cn('shrink-0 text-[0.625rem]', tierBadgeClass(item.tier)),
                     children: item.tier
                   })
                 : item.unlocked
                   ? jsx(Badge, {
                       variant: 'outline',
-                      className: 'shrink-0 text-[0.6875rem] text-(--ui-accent)',
+                      className: 'shrink-0 text-[0.625rem] text-(--ui-accent)',
                       children: 'Earned'
                     })
                   : null,
               item.unlocked && !isSecret
                 ? jsxs('div', {
-                    className: 'flex shrink-0 items-center gap-1.5',
+                    className: 'flex shrink-0 items-center gap-1',
                     children: [
                       jsx('button', {
                         type: 'button',
                         onClick: () => celebrate({ name: item.name, tier: item.tier }, {}),
                         className:
-                          'inline-flex items-center gap-1 rounded-md border border-(--ui-stroke-secondary) px-1.5 py-0.5 text-[0.6875rem] text-(--ui-text-tertiary) transition-colors hover:text-(--ui-text-primary)',
+                          'inline-flex items-center gap-0.5 rounded-md border border-(--ui-stroke-secondary) px-1 py-0.5 text-[0.625rem] text-(--ui-text-tertiary) transition-colors hover:text-(--ui-text-primary)',
                         children: jsxs('span', {
-                          className: 'inline-flex items-center gap-1',
-                          children: [jsx(Codicon, { name: 'play', size: '0.75rem' }), 'Replay']
+                          className: 'inline-flex items-center gap-0.5',
+                          children: [jsx(Codicon, { name: 'play', size: '0.625rem' }), 'Replay']
                         })
                       }),
                       jsx('button', {
                         type: 'button',
                         onClick: () => setShareOpen(true),
                         className:
-                          'inline-flex items-center gap-1 rounded-md border border-(--ui-stroke-secondary) px-1.5 py-0.5 text-[0.6875rem] text-(--ui-text-tertiary) transition-colors hover:text-(--ui-text-primary)',
+                          'inline-flex items-center gap-0.5 rounded-md border border-(--ui-stroke-secondary) px-1 py-0.5 text-[0.625rem] text-(--ui-text-tertiary) transition-colors hover:text-(--ui-text-primary)',
                         children: jsxs('span', {
-                          className: 'inline-flex items-center gap-1',
-                          children: [jsx(Codicon, { name: 'share', size: '0.75rem' }), 'Share']
+                          className: 'inline-flex items-center gap-0.5',
+                          children: [jsx(Codicon, { name: 'share', size: '0.625rem' }), 'Share']
                         })
                       })
                     ]
@@ -1593,19 +1600,20 @@ function AchievementCard({ item }) {
         ]
       }),
       jsx('p', {
-        className: 'mt-2 line-clamp-2 text-xs leading-relaxed text-(--ui-text-tertiary)',
+        className: 'mt-1.5 line-clamp-2 text-[0.6875rem] leading-snug text-(--ui-text-tertiary)',
         children: isSecret ? 'Secret achievement — hidden until the first matching signal appears.' : item.description
       }),
       jsxs('div', {
-        className: 'mt-3',
+        className: 'mt-1.5',
         children: [
           jsxs('div', {
-            className: 'flex items-center justify-between text-[0.6875rem] text-(--ui-text-tertiary)',
+            className: 'flex items-center justify-between text-[0.625rem] text-(--ui-text-tertiary)',
             children: [
               jsx('span', {
+                className: 'truncate',
                 children: item.unlocked ? (item.next_tier ? `next: ${item.next_tier} · ${item.next_threshold}` : 'max tier') : (item.next_tier ? `next: ${item.next_tier} · ${item.next_threshold}` : '')
               }),
-              jsx('span', { className: 'tabular-nums', children: isSecret ? '' : `${pct}%` })
+              jsx('span', { className: 'shrink-0 tabular-nums', children: isSecret ? '' : `${pct}%` })
             ]
           }),
           jsxs('div', {
@@ -1621,17 +1629,17 @@ function AchievementCard({ item }) {
       }),
       item.criteria
         ? jsxs('div', {
-            className: 'mt-3',
+            className: 'mt-1.5',
             children: [
               jsx('button', {
-                className: 'text-[0.6875rem] text-(--ui-text-tertiary) underline decoration-dotted underline-offset-2 hover:text-(--ui-text-primary)',
+                className: 'text-[0.625rem] text-(--ui-text-tertiary) underline decoration-dotted underline-offset-2 hover:text-(--ui-text-primary)',
                 type: 'button',
                 onClick: () => setOpen(o => !o),
                 children: open ? 'Hide what counts' : 'What counts?'
               }),
               open
                 ? jsx('p', {
-                    className: 'mt-1.5 text-[0.6875rem] leading-relaxed text-(--ui-text-tertiary)',
+                    className: 'mt-1 text-[0.625rem] leading-snug text-(--ui-text-tertiary)',
                     children: item.criteria
                   })
                 : null
@@ -1640,7 +1648,7 @@ function AchievementCard({ item }) {
         : null,
       item.evidence && item.evidence.title
         ? jsx('p', {
-            className: 'mt-2 truncate text-[0.6875rem] text-(--ui-text-quaternary)',
+            className: 'mt-1 truncate text-[0.625rem] text-(--ui-text-quaternary)',
             children: 'evidence: ' + item.evidence.title
           })
         : null,
@@ -1800,8 +1808,19 @@ function AchievementsPage() {
                   : 'Nothing in this state yet — keep using Hermes.'
               })
             : jsx('div', {
-                className: 'grid flex-1 auto-rows-min grid-cols-1 gap-4 overflow-y-auto p-6 sm:grid-cols-2 lg:grid-cols-3',
-                children: sorted.map(a => jsx(AchievementCard, { key: a.id, item: a }))
+                className: 'flex flex-wrap content-start gap-2 overflow-y-auto p-4',
+                style: { display: 'flex', flexWrap: 'wrap' },
+                children: sorted.map(a =>
+                  jsx('div', {
+                    key: a.id,
+                    className: 'relative',
+                    // Inline width (6 per row at 8px gap) because the app's
+                    // Tailwind build only ships grid-cols-1/2/4/6 — plugin
+                    // grid classes get purged. Same trick as the theme pack.
+                    style: { width: 'calc((100% - 40px) / 6)' },
+                    children: jsx(AchievementCard, { item: a })
+                  })
+                )
               }),
       jsx(SettingsPanel, { open: settingsOpen, onClose: () => setSettingsOpen(false) })
     ]
