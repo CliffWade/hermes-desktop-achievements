@@ -6,7 +6,13 @@ A full achievements page (score header, tier filters, progress bars, rescan),
 a sidebar nav row, a live statusbar score chip, and a ⌘K command — all backed
 by the `hermes-achievements` dashboard plugin that ships with Hermes Agent.
 
-![Achievements page](docs/achievements-page.png)
+![Achievements Overview](docs/achievements-page.png)
+![Achievements grid](docs/achievements-grid.png)
+
+The Overview tab shows your dashboard strips (activity, rewards, records,
+goals, quests, custom goals, next up) as color-coded sections; the All /
+Unlocked / Discovered / Secret tabs show just the badge grid with search
+and sort. The tab bar stays pinned while you scroll.
 
 ## What you get
 
@@ -42,8 +48,6 @@ by the `hermes-achievements` dashboard plugin that ships with Hermes Agent.
 - **Badge wall export** — the full collection as an SVG poster from Export
 - **Collapsible sections** — every strip collapses to a header row with
   state remembered across reloads
-- **Quests tab** — all available quests with requirements, XP, and completion
-  dates; a "Recently completed" timeline shows the last 5 quests finished
 - **Quest + goal completion moments** — fanfare and toasts when quests and
   custom goals hit their targets
 - **Pin favorites** — pin any badge and it sorts to the top, persisted
@@ -74,8 +78,16 @@ by the `hermes-achievements` dashboard plugin that ships with Hermes Agent.
   page
 - **Share cards** — 1200×630 canvas PNG export for any unlocked badge, ready
   to post
-- **Filter tabs** — all / unlocked / discovered / secret / history / custom
-  with live counts
+- **Filter tabs** — Overview / all / unlocked / discovered / secret / history /
+  custom / quests with live counts; the Overview tab holds the dashboard
+  strips, the state tabs hold just the grid
+- **Sticky tab bar** — navigation stays pinned to the top while you scroll
+  strips or grid
+- **Quests tab** — all available quests with requirements, XP, and completion
+  dates; a "Recently completed" timeline shows the last 5 quests finished
+- **Color-coded sections** — each Overview strip carries a category-palette
+  accent (Activity sky, Rewards gold, Records teal, Goals green, Quests
+  violet, Custom goals coral)
 - **Search and sort** — filter by name, sort by closest, tier, or name
 - **NEW freshness tag** — badges unlocked in the last 48 hours are marked NEW
 - **Statusbar chip** — live score plus the closest next-up achievement in the
