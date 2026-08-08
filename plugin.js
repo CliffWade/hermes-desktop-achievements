@@ -88,6 +88,22 @@ function progressBarClass(state) {
   return 'bg-(--ui-text-tertiary)'
 }
 
+// Tier identity colors for progress bars and next-tier chips. Distinct hues
+// so the grid adds another layer of scanning (Copper → Olympian).
+const TIER_HUES = { Copper: 28, Silver: 210, Gold: 45, Diamond: 190, Olympian: 265 }
+const TIER_HEX = { Copper: '#b07a3a', Silver: '#7a93b0', Gold: '#b8930a', Diamond: '#1f9d8f', Olympian: '#7a5fb0' }
+
+function tierColor(tier) {
+  return TIER_HEX[tier] || null
+}
+
+function tierProgressStyle(state, tier) {
+  if (state === 'unlocked') return { backgroundColor: 'var(--ui-accent)' }
+  const c = tierColor(tier)
+  if (c) return { backgroundColor: c }
+  return { backgroundColor: 'var(--ui-text-tertiary)' }
+}
+
 // Category identity colors. Each category gets a hue so the grid reads as a
 // patchwork instead of a wall of identical boxes. Colors are used as:
 //   - a 3px left border on every card (categoryColor(cat) → border style)
@@ -394,6 +410,59 @@ function trackRewards(rewards, ctx) {
   }
 }
 
+// Quest + custom-goal completion moments: same flip detection as rewards.
+let _knownQuests = new Map()
+let _questsBaseline = false
+let _knownGoals = new Map()
+let _goalsBaseline = false
+
+function celebrateQuestComplete(q) {
+  celebrate({ name: q.name, tier: 'Gold' }, { milestone: true })
+  host.notify({ kind: 'success', message: `🎯 Quest complete: ${q.name} (+${q.xp} XP)!` })
+  postToWebhook(`🎯 Quest complete: ${q.name} (+${q.xp} XP)!`)
+}
+
+function celebrateGoalComplete(g) {
+  celebrate({ name: g.name, tier: 'Silver' }, {})
+  host.notify({ kind: 'success', message: `✅ Goal complete: ${g.name}!` })
+}
+
+function trackQuests(quests) {
+  if (!quests || quests.length === 0) return
+  const current = new Map(quests.map(q => [q.id, q.done]))
+  if (!_questsBaseline) {
+    _knownQuests = current
+    _questsBaseline = true
+    return
+  }
+  for (const [id, done] of current) {
+    const was = _knownQuests.get(id)
+    if (was === false && done === true) {
+      const q = quests.find(x => x.id === id)
+      if (q) celebrateQuestComplete(q)
+    }
+    _knownQuests.set(id, done)
+  }
+}
+
+function trackGoals(goals) {
+  if (!goals || goals.length === 0) return
+  const current = new Map(goals.map(g => [g.id, g.done]))
+  if (!_goalsBaseline) {
+    _knownGoals = current
+    _goalsBaseline = true
+    return
+  }
+  for (const [id, done] of current) {
+    const was = _knownGoals.get(id)
+    if (was === false && done === true) {
+      const g = goals.find(x => x.id === id)
+      if (g) celebrateGoalComplete(g)
+    }
+    _knownGoals.set(id, done)
+  }
+}
+
 // Session-end recap: unlocks are grouped into "session windows" separated by
 // an idle gap. When a window closes (no new unlocks for SESSION_WINDOW_IDLE_MS)
 // a recap toast summarizes what the session earned.
@@ -500,6 +569,10 @@ async function refreshUnlocks(ctx) {
 
     // Reward flips (locked → unlocked) get their own celebration.
     trackRewards(data?.rewards, ctx)
+
+    // Quest + custom-goal completion moments.
+    trackQuests(data?.quests)
+    trackGoals(data?.custom_goals)
 
     // Nudge: locked achievements ≥90% whisper once.
     if (_settings.nudges) {
@@ -922,6 +995,112 @@ function SettingsPanel({ open, onClose }) {
 
 // ── Export ─────────────────────────────────────────────────────────────────
 
+// Render the full badge collection to a canvas and download as PNG.
+// Mirrors the backend SVG layout: uniform cards, category-tinted fills,
+// tier labels, progress bars. Canvas lets us post directly to social.
+const CATEGORY_HSL = {
+  'Agent Autonomy': '250', 'Debugging Chaos': '15', 'Hermes Native': '205',
+  'Lifestyle': '150', 'Model Lore': '330', 'Research/Web': '275',
+  'Sets': '45', 'Tool Mastery': '190', 'Vibe Coding': '0'
+}
+
+function drawBadgeWallPng(achievements, level) {
+  const cols = 8
+  const cardW = 150
+  const cardH = 92
+  const gap = 12
+  const pad = 28
+  const headerH = 46
+  const rows = Math.max(1, Math.ceil(achievements.length / cols))
+  const W = pad * 2 + cols * cardW + (cols - 1) * gap
+  const H = headerH + pad * 2 + rows * cardH + (rows - 1) * gap
+
+  const canvas = document.createElement('canvas')
+  canvas.width = W
+  canvas.height = H
+  const ctx = canvas.getContext('2d')
+
+  ctx.fillStyle = '#fafafa'
+  ctx.fillRect(0, 0, W, H)
+
+  ctx.fillStyle = '#333'
+  ctx.font = '700 15px -apple-system, system-ui, sans-serif'
+  ctx.fillText(`Hermes Achievements — ${achievements.filter(a => a.unlocked).length}/${achievements.length} unlocked · Level ${level.level} ${level.name}`, pad, 30)
+
+  const catColor = cat => {
+    const h = CATEGORY_HSL[cat] || '220'
+    return `hsl(${h} 55% 45%)`
+  }
+
+  achievements.forEach((a, idx) => {
+    const r = Math.floor(idx / cols)
+    const c = idx % cols
+    const x = pad + c * (cardW + gap)
+    const y = headerH + pad + r * (cardH + gap)
+    const color = catColor(a.category || '')
+    const name = a.state === 'secret' ? '???' : (a.name || '')
+    const tier = a.tier || ''
+    const pct = a.unlocked ? 100 : Math.min(100, a.progress_pct || 0)
+
+    const fill = a.kind === 'collection'
+      ? 'hsl(45 90% 92%)'
+      : a.unlocked ? 'hsl(0 0% 94%)' : 'hsl(220 15% 96%)'
+
+    // Card + accent.
+    ctx.fillStyle = fill
+    ctx.strokeStyle = color
+    ctx.globalAlpha = 0.5
+    ctx.lineWidth = 1.5
+    ctx.beginPath()
+    ctx.roundRect ? ctx.roundRect(x, y, cardW, cardH, 8) : ctx.rect(x, y, cardW, cardH)
+    ctx.fill()
+    ctx.stroke()
+    ctx.globalAlpha = 1
+    ctx.fillStyle = color
+    ctx.fillRect(x, y, 4, cardH)
+
+    // Name + category.
+    ctx.fillStyle = '#333'
+    ctx.font = '600 10.5px -apple-system, system-ui, sans-serif'
+    ctx.fillText(truncateCanvas(ctx, name, cardW - 22), x + 12, y + 22)
+    ctx.fillStyle = '#888'
+    ctx.font = '400 7.5px -apple-system, system-ui, sans-serif'
+    ctx.fillText(String(a.category || ''), x + 12, y + 38)
+
+    // Progress bar.
+    ctx.fillStyle = '#e5e5e5'
+    ctx.fillRect(x + 12, y + 46, cardW - 24, 5)
+    ctx.fillStyle = color
+    ctx.fillRect(x + 12, y + 46, Math.round((cardW - 24) * pct / 100), 5)
+
+    // Tier + pct.
+    ctx.fillStyle = color
+    ctx.font = '600 8px -apple-system, system-ui, sans-serif'
+    ctx.fillText(tier || (a.unlocked ? 'EARNED' : 'locked'), x + 12, y + 70)
+    ctx.fillStyle = '#999'
+    ctx.textAlign = 'right'
+    ctx.fillText(`${pct}%`, x + cardW - 12, y + 70)
+    ctx.textAlign = 'left'
+  })
+
+  canvas.toBlob(blob => {
+    if (!blob) return
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'hermes-achievements-wall.png'
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 5000)
+  }, 'image/png')
+}
+
+function truncateCanvas(ctx, text, maxW) {
+  if (ctx.measureText(text).width <= maxW) return text
+  let t = text
+  while (t.length > 1 && ctx.measureText(t + '…').width > maxW) t = t.slice(0, -1)
+  return t + '…'
+}
+
 function downloadText(filename, text) {
   try {
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
@@ -1013,7 +1192,7 @@ function ExportMenu({ data }) {
       open
         ? jsxs('div', {
             className:
-              'absolute right-0 top-full z-20 mt-1 w-36 overflow-hidden rounded-md border border-(--ui-stroke-secondary) bg-(--ui-bg-primary) shadow-xl',
+              'absolute right-0 top-full z-20 mt-1 w-40 overflow-hidden rounded-md border border-(--ui-stroke-secondary) bg-(--ui-bg-primary) shadow-xl',
             children: [
               jsx('button', {
                 type: 'button',
@@ -1035,6 +1214,20 @@ function ExportMenu({ data }) {
               }),
               jsx('button', {
                 type: 'button',
+                onClick: () => {
+                  try {
+                    drawBadgeWallPng(data.achievements || [], data.level || { level: 1, name: 'Initiate' })
+                    haptic('tap')
+                  } catch (e) {
+                    host.notify({ kind: 'error', message: `Badge wall PNG failed: ${e?.message ?? e}` })
+                  }
+                  setOpen(false)
+                },
+                className: itemClass,
+                children: 'Badge wall PNG'
+              }),
+              jsx('button', {
+                type: 'button',
                 onClick: async () => {
                   setOpen(false)
                   try {
@@ -1047,7 +1240,7 @@ function ExportMenu({ data }) {
                   }
                 },
                 className: itemClass,
-                children: 'Badge wall'
+                children: 'Badge wall SVG'
               })
             ]
           })
@@ -1289,21 +1482,8 @@ function ActivityHeatmap({ activity }) {
   const barHeight = w => (w.tools > 0 ? Math.max(4, Math.round((w.tools / maxTools) * 44)) : 2)
 
   return jsxs('div', {
-    className: 'border-b border-(--ui-stroke-secondary) px-6 py-3',
+    className: 'px-6 pb-3',
     children: [
-      jsxs('div', {
-        className: 'mb-2 flex items-baseline justify-between',
-        children: [
-          jsx('div', {
-            className: 'text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary)',
-            children: 'Activity'
-          }),
-          jsx('span', {
-            className: 'text-[0.6875rem] text-(--ui-text-quaternary)',
-            children: `${totalDays} active days · ${totalTools.toLocaleString()} tool calls · last 6 months`
-          })
-        ]
-      }),
       jsxs('div', {
         className: 'relative',
         children: [
@@ -1372,13 +1552,9 @@ function RewardsStrip({ rewards }) {
   }[id] || '🎁')
 
   return jsxs('div', {
-    className: 'border-b border-(--ui-stroke-secondary) px-6 py-2.5',
+    className: 'px-6 pb-2.5',
     children: [
       jsx('div', {
-        className: 'mb-1.5 text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary)',
-        children: 'Rewards'
-      }),
-      jsxs('div', {
         className: 'flex flex-wrap gap-2',
         style: { display: 'flex', flexWrap: 'wrap' },
         children: rewards.map(r => {
@@ -1621,8 +1797,11 @@ function NextUpStrip({ items }) {
                 className: 'mt-1.5 h-1 w-full overflow-hidden rounded-full bg-(--ui-bg-quaternary)',
                 children: [
                   jsx('div', {
-                    className: 'h-full rounded-full bg-(--ui-accent)',
-                    style: { width: `${Math.min(100, a.progress_pct ?? 0)}%` }
+                    className: 'h-full rounded-full',
+                    style: {
+                      ...tierProgressStyle(a.state, a.next_tier),
+                      width: `${Math.min(100, a.progress_pct ?? 0)}%`
+                    }
                   })
                 ]
               }),
@@ -1702,7 +1881,7 @@ function SessionBadges() {
 
 // ── Achievement card ────────────────────────────────────────────────────────
 
-function AchievementCard({ item, onCatClick }) {
+function AchievementCard({ item, onCatClick, pinned, onTogglePin }) {
   const [open, setOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const isSecret = item.state === 'secret'
@@ -1714,10 +1893,11 @@ function AchievementCard({ item, onCatClick }) {
 
   return jsxs('div', {
     className: cn(
-      'relative flex flex-col rounded-lg border p-2.5',
+      'group relative flex flex-col rounded-lg border p-2.5',
       item.unlocked
         ? 'border-(--ui-stroke-strong)'
         : 'border-(--ui-stroke-secondary)',
+      pinned && 'ring-1 ring-(--ui-accent)/40',
       isSecret && 'opacity-70'
     ),
     // Category identity: 3px left accent + soft tinted fill. Unlocked cards
@@ -1727,6 +1907,19 @@ function AchievementCard({ item, onCatClick }) {
       backgroundColor: categoryBg(item.category)
     },
     children: [
+      jsx('button', {
+        type: 'button',
+        onClick: e => {
+          e.stopPropagation()
+          onTogglePin && onTogglePin(item.id)
+        },
+        title: pinned ? 'Unpin' : 'Pin to top',
+        className: cn(
+          'absolute right-1.5 top-1 z-10 rounded p-0.5 text-[0.625rem] transition-opacity hover:opacity-100',
+          pinned ? 'text-(--ui-accent) opacity-100' : 'text-(--ui-text-quaternary) opacity-0 group-hover:opacity-100'
+        ),
+        children: pinned ? '📌' : '📌'
+      }),
       jsxs('div', {
         className: 'flex items-start justify-between gap-1.5',
         children: [
@@ -1832,8 +2025,11 @@ function AchievementCard({ item, onCatClick }) {
             className: 'mt-1 h-1 w-full overflow-hidden rounded-full bg-(--ui-bg-quaternary)',
             children: [
               jsx('div', {
-                className: cn('h-full rounded-full', progressBarClass(item.state)),
-                style: { width: `${isSecret ? 0 : Math.min(100, pct)}%` }
+                className: 'h-full rounded-full',
+                style: {
+                  ...tierProgressStyle(item.state, item.unlocked ? item.tier : item.next_tier),
+                  width: `${isSecret ? 0 : Math.min(100, pct)}%`
+                }
               })
             ]
           })
@@ -1942,8 +2138,11 @@ function AchievementPreviewPanel({ card }) {
             className: 'mt-1.5 h-1 w-full overflow-hidden rounded-full bg-(--ui-bg-quaternary)',
             children: [
               jsx('div', {
-                className: cn('h-full rounded-full', progressBarClass(item.state)),
-                style: { width: `${isSecret ? 0 : Math.min(100, pct)}%` }
+                className: 'h-full rounded-full',
+                style: {
+                  ...tierProgressStyle(item.state, item.unlocked ? item.tier : item.next_tier),
+                  width: `${isSecret ? 0 : Math.min(100, pct)}%`
+                }
               })
             ]
           })
@@ -1965,12 +2164,8 @@ function RecordsStrip({ records }) {
   if (items.length === 0) return null
 
   return jsxs('div', {
-    className: 'border-b border-(--ui-stroke-secondary) px-6 py-2.5',
+    className: 'px-6 pb-2.5',
     children: [
-      jsx('div', {
-        className: 'mb-1.5 text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary)',
-        children: 'Records'
-      }),
       jsxs('div', {
         className: 'flex flex-wrap gap-2',
         style: { display: 'flex', flexWrap: 'wrap' },
@@ -1995,12 +2190,8 @@ function RecordsStrip({ records }) {
 function QuestsStrip({ quests }) {
   if (!quests || quests.length === 0) return null
   return jsxs('div', {
-    className: 'border-b border-(--ui-stroke-secondary) px-6 py-2.5',
+    className: 'px-6 pb-2.5',
     children: [
-      jsx('div', {
-        className: 'mb-1.5 text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary)',
-        children: 'Quests'
-      }),
       jsxs('div', {
         className: 'flex flex-wrap gap-2',
         style: { display: 'flex', flexWrap: 'wrap' },
@@ -2033,6 +2224,73 @@ function QuestsStrip({ quests }) {
           })
         )
       })
+    ]
+  })
+}
+
+// ── Collapsible section wrapper ─────────────────────────────────────────────
+// Every strip on the page can collapse to a header row, with the state
+// persisted per section id so the user's layout survives reloads.
+
+const SECTION_DEFAULTS = {}
+
+function Section({ id, title, extra, children, defaultOpen = true }) {
+  const [open, setOpen] = useState(SECTION_DEFAULTS[id] !== undefined ? SECTION_DEFAULTS[id] : defaultOpen)
+
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const stored = (await storageRef.get('sectionState')) || {}
+        if (mounted && stored[id] !== undefined) setOpen(!!stored[id])
+      } catch (e) {
+        /* ignore */
+      }
+    })()
+    return () => { mounted = false }
+  }, [id])
+
+  const toggle = () => {
+    const next = !open
+    setOpen(next)
+    SECTION_DEFAULTS[id] = next
+    try {
+      storageRef.get('sectionState').then(stored => {
+        const base = stored || {}
+        base[id] = next
+        storageRef.set('sectionState', base)
+      })
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  return jsxs('div', {
+    className: 'border-b border-(--ui-stroke-secondary)',
+    children: [
+      jsxs('div', {
+        className: 'flex items-center justify-between gap-2 px-6 pb-1 pt-2.5',
+        children: [
+          jsx('button', {
+            type: 'button',
+            onClick: toggle,
+            className:
+              'group flex items-center gap-1.5 text-left text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary) transition-colors hover:text-(--ui-text-primary)',
+            children: [
+              jsx(Codicon, {
+                name: open ? 'chevron-down' : 'chevron-right',
+                size: '0.7rem',
+                className: 'shrink-0 transition-transform'
+              }),
+              jsx('span', { children: title })
+            ]
+          }),
+          extra
+            ? jsx('span', { className: 'text-[0.6875rem] text-(--ui-text-quaternary)', children: extra })
+            : null
+        ]
+      }),
+      open ? jsx('div', { children }) : null
     ]
   })
 }
@@ -2127,7 +2385,7 @@ function ChallengesStrip({ challenges, weekly }) {
     })
 
   return jsxs('div', {
-    className: 'border-b border-(--ui-stroke-secondary) px-6 py-2.5',
+    className: 'px-6 pb-2.5',
     children: [
       challenges && challenges.length > 0 ? renderRow('This month', challenges) : null,
       weekly && weekly.length > 0 ? renderRow('This week', weekly) : null
@@ -2187,12 +2445,8 @@ function CustomGoalsSection({ data }) {
   }
 
   return jsxs('div', {
-    className: 'border-b border-(--ui-stroke-secondary) px-6 py-2.5',
+    className: 'px-6 pb-2.5',
     children: [
-      jsx('div', {
-        className: 'mb-1.5 text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary)',
-        children: 'Custom goals'
-      }),
       jsxs('div', {
         className: 'mb-2 flex flex-wrap items-center gap-1.5',
         children: [
@@ -2298,8 +2552,59 @@ function AchievementsPage() {
   const [sort, setSort] = useState('progress')
   const [catFilter, setCatFilter] = useState(null)
   const [hoverItem, setHoverItem] = useState(null)
+  const [pinned, setPinned] = useState([])
   const [rescinding, setRescinding] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const searchRef = useRef(null)
+
+  // Palette "Find a badge" focuses the search input on arrival.
+  useEffect(() => {
+    if (_pendingFind) {
+      _pendingFind = false
+      const t = setTimeout(() => {
+        if (searchRef.current) searchRef.current.focus()
+      }, 100)
+      return () => clearTimeout(t)
+    }
+  }, [])
+
+  // Persisted category filter (survives reloads).
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const stored = (await storageRef.get('catFilter')) || null
+        if (mounted && stored) setCatFilter(stored)
+        const pinnedStored = (await storageRef.get('pinned')) || []
+        if (mounted && Array.isArray(pinnedStored)) setPinned(pinnedStored)
+      } catch (e) {
+        /* ignore */
+      }
+    })()
+    return () => { mounted = false }
+  }, [])
+
+  const selectCat = cat => {
+    const next = catFilter === cat ? null : cat
+    setCatFilter(next)
+    try {
+      storageRef.set('catFilter', next)
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  const togglePin = id => {
+    setPinned(prev => {
+      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+      try {
+        storageRef.set('pinned', next)
+      } catch (e) {
+        /* ignore */
+      }
+      return next
+    })
+  }
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['hermes-achievements', 'all'],
@@ -2344,6 +2649,9 @@ function AchievementsPage() {
     : shown
   const catFiltered = catFilter ? filtered.filter(a => (a.category || 'Other') === catFilter) : filtered
   const sorted = [...catFiltered].sort((a, b) => {
+    const ap = pinned.includes(a.id) ? 0 : 1
+    const bp = pinned.includes(b.id) ? 0 : 1
+    if (ap !== bp) return ap - bp
     if (sort === 'name') return (a.name || '').localeCompare(b.name || '')
     if (sort === 'tier') return tierIndex(b.tier) - tierIndex(a.tier) || (b.progress_pct || 0) - (a.progress_pct || 0)
     if (a.unlocked !== b.unlocked) return a.unlocked ? 1 : -1
@@ -2363,15 +2671,52 @@ function AchievementsPage() {
     children: [
       jsx(ScoreHeader, { data, onRescan: rescan, rescinding, onOpenSettings: () => setSettingsOpen(true) }),
       filter !== 'history' && filter !== 'custom'
-        ? jsx(CategoryChips, { categories: data.categories, active: catFilter, onSelect: setCatFilter })
+        ? jsx(CategoryChips, { categories: data.categories, active: catFilter, onSelect: selectCat })
         : null,
       filter !== 'history' && filter !== 'custom' ? jsx(MiniStats, { data }) : null,
-      filter !== 'history' && filter !== 'custom' ? jsx(ActivityHeatmap, { activity: data.activity }) : null,
-      filter !== 'history' && filter !== 'custom' ? jsx(RewardsStrip, { rewards: data.rewards }) : null,
-      filter !== 'history' && filter !== 'custom' ? jsx(RecordsStrip, { records: data.records }) : null,
-      filter !== 'history' && filter !== 'custom' ? jsx(ChallengesStrip, { challenges: data.challenges, weekly: data.weekly }) : null,
-      filter !== 'history' && filter !== 'custom' ? jsx(QuestsStrip, { quests: data.quests }) : null,
-      filter !== 'history' && filter !== 'custom' ? jsx(CustomGoalsSection, { data }) : null,
+      filter !== 'history' && filter !== 'custom'
+        ? jsx(Section, {
+            id: 'activity',
+            title: 'Activity',
+            extra: `${(data.activity || []).filter(d => d.sessions > 0).length} active days · last 6 months`,
+            children: jsx(ActivityHeatmap, { activity: data.activity })
+          })
+        : null,
+      filter !== 'history' && filter !== 'custom'
+        ? jsx(Section, {
+            id: 'rewards',
+            title: 'Rewards',
+            children: jsx(RewardsStrip, { rewards: data.rewards })
+          })
+        : null,
+      filter !== 'history' && filter !== 'custom'
+        ? jsx(Section, {
+            id: 'records',
+            title: 'Records',
+            children: jsx(RecordsStrip, { records: data.records })
+          })
+        : null,
+      filter !== 'history' && filter !== 'custom'
+        ? jsx(Section, {
+            id: 'goals',
+            title: 'Goals',
+            children: jsx(ChallengesStrip, { challenges: data.challenges, weekly: data.weekly })
+          })
+        : null,
+      filter !== 'history' && filter !== 'custom'
+        ? jsx(Section, {
+            id: 'quests',
+            title: 'Quests',
+            children: jsx(QuestsStrip, { quests: data.quests })
+          })
+        : null,
+      filter !== 'history' && filter !== 'custom'
+        ? jsx(Section, {
+            id: 'custom-goals',
+            title: 'Custom goals',
+            children: jsx(CustomGoalsSection, { data })
+          })
+        : null,
       filter !== 'history' && filter !== 'custom' ? jsx(SessionBadges, {}) : null,
       filter === 'all' ? jsx(NextUpStrip, { items: nextUp }) : null,
       jsxs('div', {
@@ -2412,6 +2757,7 @@ function AchievementsPage() {
                 className: 'ml-auto flex items-center gap-2',
                 children: [
                   jsx('input', {
+                    ref: searchRef,
                     className:
                       'w-44 rounded-md border border-(--ui-stroke-secondary) bg-(--ui-bg-secondary) px-2 py-1 text-xs outline-none focus:border-(--ui-accent)',
                     placeholder: 'Search…',
@@ -2472,9 +2818,11 @@ function AchievementsPage() {
                     style: { width: 'calc((100% - 40px) / 6)' },
                     children: jsx(AchievementCard, {
                       item: a,
+                      pinned: pinned.includes(a.id),
+                      onTogglePin: togglePin,
                       onCatClick: cat => {
                         setFilter('all')
-                        setCatFilter(catFilter === cat ? null : cat)
+                        selectCat(cat)
                       }
                     })
                   })
@@ -2542,6 +2890,10 @@ function ScoreChip() {
 
 // ── Plugin export ───────────────────────────────────────────────────────────
 
+// Set by the palette "Find" command; AchievementsPage focuses its search
+// input when it mounts with this flag.
+let _pendingFind = false
+
 export default {
   id: ID,
   name: 'Achievements',
@@ -2589,6 +2941,20 @@ export default {
           keywords: ['achievements', 'badges', 'tiers', 'trophy'],
           run: () => {
             haptic('tap')
+            host.navigate('/achievements')
+          }
+        }
+      },
+      {
+        id: 'find',
+        area: PALETTE_AREA,
+        data: {
+          id: 'hermes-achievements.find',
+          label: 'Achievements: Find a badge',
+          keywords: ['achievements', 'search', 'find', 'badge', 'filter'],
+          run: () => {
+            haptic('tap')
+            _pendingFind = true
             host.navigate('/achievements')
           }
         }
