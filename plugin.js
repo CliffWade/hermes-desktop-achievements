@@ -2470,7 +2470,7 @@ function AchievementsPage() {
                   : 'Nothing in this state yet — keep using Hermes.'
               })
             : jsx('div', {
-                className: 'flex flex-wrap content-start gap-2 p-4',
+                className: 'flex flex-wrap content-start gap-2 px-6 py-4',
                 style: { display: 'flex', flexWrap: 'wrap' },
                 children: sorted.map(a =>
                   jsx('div', {
