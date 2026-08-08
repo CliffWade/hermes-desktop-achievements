@@ -1795,6 +1795,90 @@ function AchievementCard({ item, onCatClick }) {
   })
 }
 
+// ── Achievement hover popover ───────────────────────────────────────────────
+
+function AchievementHoverCard({ card }) {
+  if (!card) return null
+  const { item, x, y, align } = card
+  const isSecret = item.state === 'secret'
+  const pct = item.progress_pct ?? 0
+
+  return jsxs('div', {
+    className: 'pointer-events-none fixed z-50 w-72 rounded-lg border border-(--ui-stroke-strong) bg-(--ui-bg-primary) p-3 shadow-lg',
+    style: {
+      left: x,
+      top: y,
+      transform: align === 'right' ? 'translateX(-100%)' : undefined,
+      borderLeft: `3px solid ${categoryColor(item.category)}`
+    },
+    children: [
+      jsxs('div', {
+        className: 'flex items-center justify-between gap-2',
+        children: [
+          jsx('span', {
+            className: 'truncate text-[0.8125rem] font-semibold',
+            style: { color: categoryColor(item.category) },
+            children: isSecret ? '???' : item.name
+          }),
+          jsx('span', {
+            className: 'shrink-0 text-[0.5625rem] font-medium uppercase tracking-wide text-(--ui-text-quaternary)',
+            children: item.category
+          })
+        ]
+      }),
+      jsx('p', {
+        className: 'mt-1.5 text-[0.6875rem] leading-relaxed text-(--ui-text-secondary)',
+        children: isSecret
+          ? 'Secret achievement — hidden until the first matching signal appears.'
+          : item.description
+      }),
+      item.criteria
+        ? jsxs('div', {
+            className: 'mt-2 rounded-md bg-(--ui-bg-tertiary) px-2 py-1.5',
+            children: [
+              jsx('span', {
+                className: 'text-[0.5625rem] font-medium uppercase tracking-wide text-(--ui-text-quaternary)',
+                children: 'What counts'
+              }),
+              jsx('p', {
+                className: 'mt-0.5 text-[0.625rem] leading-relaxed text-(--ui-text-tertiary)',
+                children: item.criteria
+              })
+            ]
+          })
+        : null,
+      jsxs('div', {
+        className: 'mt-2 flex items-center justify-between gap-2 text-[0.625rem] text-(--ui-text-tertiary)',
+        children: [
+          jsx('span', {
+            children: item.unlocked
+              ? (item.tier ? `unlocked · ${item.tier}` : 'unlocked')
+              : (item.next_tier ? `next: ${item.next_tier} · ${item.next_threshold}` : '')
+          }),
+          jsxs('span', {
+            className: 'flex shrink-0 items-center gap-2 tabular-nums',
+            children: [
+              item.eta_days ? jsx('span', { className: 'text-(--ui-text-quaternary)', children: `~${item.eta_days}d` }) : null,
+              isSecret ? null : jsx('span', { children: `${pct}%` })
+            ]
+          })
+        ]
+      }),
+      item.next_threshold
+        ? jsxs('div', {
+            className: 'mt-1.5 h-1 w-full overflow-hidden rounded-full bg-(--ui-bg-quaternary)',
+            children: [
+              jsx('div', {
+                className: cn('h-full rounded-full', progressBarClass(item.state)),
+                style: { width: `${isSecret ? 0 : Math.min(100, pct)}%` }
+              })
+            ]
+          })
+        : null
+    ]
+  })
+}
+
 // ── Page ────────────────────────────────────────────────────────────────────
 
 // Category completion chips (click to filter the grid).
@@ -2046,8 +2130,28 @@ function AchievementsPage() {
   const [q, setQ] = useState('')
   const [sort, setSort] = useState('progress')
   const [catFilter, setCatFilter] = useState(null)
+  const [hoverCard, setHoverCard] = useState(null)
   const [rescinding, setRescinding] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+
+  // Position the hover popover near the card, clamped to the viewport.
+  const showHover = (a, e) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const W = 288 // w-72
+    let x = rect.left + 8
+    let align = 'left'
+    if (x + W > window.innerWidth - 8) {
+      x = rect.right - 8
+      align = 'right'
+    }
+    // Prefer below the card; flip above when there's not enough room.
+    const estHeight = 220
+    let y = rect.bottom + 8
+    if (y + estHeight > window.innerHeight - 8) {
+      y = Math.max(8, rect.top - estHeight - 8)
+    }
+    setHoverCard({ item: a, x, y, align })
+  }
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['hermes-achievements', 'all'],
@@ -2141,7 +2245,10 @@ function AchievementsPage() {
                     : 'text-(--ui-text-tertiary) hover:text-(--ui-text-primary)'
                 ),
                 type: 'button',
-                onClick: () => setFilter(f),
+                onClick: () => {
+                  setHoverCard(null)
+                  setFilter(f)
+                },
                 children: count === null ? f : `${f} (${count})`
               })
             })
@@ -2201,6 +2308,10 @@ function AchievementsPage() {
                   jsx('div', {
                     key: a.id,
                     className: 'relative',
+                    onMouseEnter: e => showHover(a, e),
+                    onMouseLeave: () => setHoverCard(null),
+                    onFocus: e => showHover(a, e),
+                    onBlur: () => setHoverCard(null),
                     // Inline width (6 per row at 8px gap) because the app's
                     // Tailwind build only ships grid-cols-1/2/4/6 — plugin
                     // grid classes get purged. Same trick as the theme pack.
@@ -2215,7 +2326,8 @@ function AchievementsPage() {
                   })
                 )
               }),
-      jsx(SettingsPanel, { open: settingsOpen, onClose: () => setSettingsOpen(false) })
+      jsx(SettingsPanel, { open: settingsOpen, onClose: () => setSettingsOpen(false) }),
+      jsx(AchievementHoverCard, { card: hoverCard })
     ]
   })
 }
