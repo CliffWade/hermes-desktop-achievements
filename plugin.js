@@ -935,7 +935,7 @@ function SettingsPanel({ open, onClose }) {
     onClick: onClose,
     children: [
       jsxs('div', {
-        className: 'w-[420px] max-w-full rounded-xl border border-(--ui-stroke-secondary) bg-(--ui-bg-primary) p-5 shadow-2xl',
+        className: 'w-[420px] max-w-full rounded-xl border border-(--ui-stroke-secondary) bg-(--ui-bg-elevated) p-5 shadow-2xl',
         onClick: e => e.stopPropagation(),
         children: [
           jsx('div', { className: 'mb-3 text-sm font-semibold', children: 'Celebration settings' }),
@@ -1192,7 +1192,7 @@ function ExportMenu({ data }) {
       open
         ? jsxs('div', {
             className:
-              'absolute right-0 top-full z-20 mt-1 w-40 overflow-hidden rounded-md border border-(--ui-stroke-secondary) bg-(--ui-bg-primary) shadow-xl',
+              'absolute right-0 top-full z-20 mt-1 w-40 overflow-hidden rounded-md border border-(--ui-stroke-secondary) bg-(--ui-bg-elevated) shadow-xl',
             children: [
               jsx('button', {
                 type: 'button',
