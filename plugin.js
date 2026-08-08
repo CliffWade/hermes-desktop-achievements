@@ -1217,8 +1217,16 @@ function NextUpStrip({ items }) {
               }),
               a.next_tier
                 ? jsx('div', {
-                    className: 'mt-1.5 text-[0.6875rem] text-(--ui-text-quaternary)',
-                    children: `next: ${a.next_tier} · ${a.next_threshold}`
+                    className: 'mt-1.5 flex items-center justify-between gap-2 text-[0.6875rem] text-(--ui-text-quaternary)',
+                    children: [
+                      jsx('span', { children: `next: ${a.next_tier} · ${a.next_threshold}` }),
+                      a.eta_days
+                        ? jsx('span', {
+                            className: 'shrink-0 tabular-nums',
+                            children: `~${a.eta_days}d at this pace`
+                          })
+                        : null
+                    ]
                   })
                 : null
             ]
@@ -1596,9 +1604,12 @@ function ScoreChip() {
     .filter(a => !a.unlocked && a.state !== 'secret' && (a.progress_pct ?? 0) > 0)
     .sort((x, y) => (y.progress_pct ?? 0) - (x.progress_pct ?? 0))[0]
 
+  const streak = (data.streak && data.streak.current_streak_days) || 0
+  const streakLabel = streak >= 2 ? ` · 🔥 ${streak}-day streak` : ''
+
   const label = next
-    ? `Achievements: ${data.unlocked_count}/${data.total_count} · Next: ${next.name} ${next.progress_pct}%`
-    : `Achievements: ${data.unlocked_count}/${data.total_count} — all unlocked!`
+    ? `Achievements: ${data.unlocked_count}/${data.total_count} · Next: ${next.name} ${next.progress_pct}%${streakLabel}`
+    : `Achievements: ${data.unlocked_count}/${data.total_count} — all unlocked!${streakLabel}`
 
   return jsx(Tip, {
     label,
@@ -1616,7 +1627,16 @@ function ScoreChip() {
         className: 'inline-flex items-center gap-1',
         children: [
           jsx(Codicon, { name: 'milestone', size: '0.7rem' }),
-          jsx('span', { children: `${data.unlocked_count}/${data.total_count}` })
+          jsx('span', { children: `${data.unlocked_count}/${data.total_count}` }),
+          streak >= 2
+            ? jsx('span', {
+                className: 'inline-flex items-center gap-0.5',
+                children: [
+                  jsx('span', { children: '🔥' }),
+                  jsx('span', { children: String(streak) })
+                ]
+              })
+            : null
         ]
       })
     })

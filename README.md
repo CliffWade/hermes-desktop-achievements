@@ -28,6 +28,10 @@ by the `hermes-achievements` dashboard plugin that ships with Hermes Agent.
   webhook URL, persisted across restarts
 - **Milestone celebrations** — a bigger confetti party at every 10 unlocks
 - **Weekly mini-stats** — unlocks this week, busiest day, tier counts
+- **Streak tracking** — the statusbar chip shows your 🔥 current-day streak,
+  and a Streak Burner badge tracks your longest consecutive-day run
+- **Next-up ETA** — locked achievements closest to unlocking show an estimate
+  of how many days until the next tier at your recent activity pace
 - **Export badges** — download the full list as Markdown or JSON
 - **Replay celebrations** — fire the confetti again from any unlocked badge or
   history entry
