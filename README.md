@@ -40,6 +40,12 @@ by the `hermes-achievements` dashboard plugin that ships with Hermes Agent.
   fast win cycle
 - **Nudges** — a whisper when a locked achievement passes 90% (settings-gated)
 - **Badge wall export** — the full collection as an SVG poster from Export
+- **Collapsible sections** — every strip collapses to a header row with
+  state remembered across reloads
+- **Quest + goal completion moments** — fanfare and toasts when quests and
+  custom goals hit their targets
+- **Pin favorites** — pin any badge and it sorts to the top, persisted
+- **Tier-colored progress bars** — each bar tints by its next tier
 - **Category overview** — clickable color-coded chips show per-category
   completion, and any category label filters the grid
 - **Custom metric goals** — define goal-based badges ("500 terminal calls")
