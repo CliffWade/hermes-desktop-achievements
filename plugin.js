@@ -58,7 +58,7 @@ let rest
 let storageRef = null
 
 const TIER_ORDER = ['Copper', 'Silver', 'Gold', 'Diamond', 'Olympian']
-const FILTERS = ['all', 'unlocked', 'discovered', 'secret', 'history', 'custom', 'quests']
+const FILTERS = ['overview', 'all', 'unlocked', 'discovered', 'secret', 'history', 'custom', 'quests']
 const UNLOCK_POLL_MS = 15_000
 
 const DEFAULT_SETTINGS = { confetti: true, sound: true, haptic: true, discordWebhook: '', nudges: true }
@@ -2746,7 +2746,8 @@ function AchievementsPage() {
   }
 
   const items = data.achievements || []
-  const shown = items.filter(a => filter === 'all' || a.state === filter)
+  // Overview shows the full catalog in its strips; state tabs filter by state.
+  const shown = items.filter(a => filter === 'all' || filter === 'overview' || a.state === filter)
   const query = q.trim().toLowerCase()
   const filtered = query
     ? shown.filter(a => `${a.name} ${a.description || ''}`.toLowerCase().includes(query))
@@ -2766,10 +2767,15 @@ function AchievementsPage() {
     .sort((x, y) => (y.progress_pct ?? 0) - (x.progress_pct ?? 0))
     .slice(0, 3)
 
-  // Main overview sections (header, activity, rewards, records, goals,
-  // quests strip, custom-goals) render only on the "all"/state tabs — not on
-  // the history, custom-goals-only, or quests-list views.
-  const isMain = filter !== 'history' && filter !== 'custom' && filter !== 'quests'
+  // View logic: the filter tabs are the primary navigation.
+  // - 'overview' tab = the dashboard summary strips (activity, rewards,
+  //   records, goals, quests, custom goals, next up) — no grid.
+  // - 'all'/'unlocked'/'discovered'/'secret' tabs = the achievement grid
+  //   with search + sort. Default 'all' lands on the clean grid view.
+  // - 'history'/'custom'/'quests' = dedicated sub-views.
+  const isOverview = filter === 'overview'
+  const isGrid = filter === 'all' || filter === 'unlocked' || filter === 'discovered' || filter === 'secret'
+  const isMain = isOverview || isGrid
 
   return jsxs('div', {
     className: 'flex h-full flex-col overflow-y-auto',
@@ -2783,7 +2789,7 @@ function AchievementsPage() {
         ? jsx(CategoryChips, { categories: data.categories, active: catFilter, onSelect: selectCat })
         : null,
       isMain ? jsx(MiniStats, { data }) : null,
-      isMain
+      isOverview
         ? jsx(Section, {
             id: 'activity',
             title: 'Activity',
@@ -2791,43 +2797,43 @@ function AchievementsPage() {
             children: jsx(ActivityHeatmap, { activity: data.activity })
           })
         : null,
-      isMain
+      isOverview
         ? jsx(Section, {
             id: 'rewards',
             title: 'Rewards',
             children: jsx(RewardsStrip, { rewards: data.rewards })
           })
         : null,
-      isMain
+      isOverview
         ? jsx(Section, {
             id: 'records',
             title: 'Records',
             children: jsx(RecordsStrip, { records: data.records })
           })
         : null,
-      isMain
+      isOverview
         ? jsx(Section, {
             id: 'goals',
             title: 'Goals',
             children: jsx(ChallengesStrip, { challenges: data.challenges, weekly: data.weekly })
           })
         : null,
-      isMain
+      isOverview
         ? jsx(Section, {
             id: 'quests',
             title: 'Quests',
             children: jsx(QuestsStrip, { quests: data.quests })
           })
         : null,
-      isMain
+      isOverview
         ? jsx(Section, {
             id: 'custom-goals',
             title: 'Custom goals',
             children: jsx(CustomGoalsSection, { data })
           })
         : null,
-      isMain ? jsx(SessionBadges, {}) : null,
-      filter === 'all' ? jsx(NextUpStrip, { items: nextUp, onHover: setHoverItem, onLeave: () => setHoverItem(null) }) : null,
+      isOverview ? jsx(SessionBadges, {}) : null,
+      isOverview ? jsx(NextUpStrip, { items: nextUp, onHover: setHoverItem, onLeave: () => setHoverItem(null) }) : null,
       jsxs('div', {
         className: 'flex flex-wrap items-center gap-2 border-b border-(--ui-stroke-secondary) px-6 py-2',
         children: [
@@ -2861,7 +2867,7 @@ function AchievementsPage() {
               })
             })
           }),
-          isMain
+          isGrid
             ? jsxs('div', {
                 className: 'ml-auto flex items-center gap-2',
                 children: [
@@ -2905,13 +2911,15 @@ function AchievementsPage() {
           ? jsx(CustomTab, {})
           : filter === 'quests'
             ? jsx(QuestsTab, { data })
-            : sorted.length === 0
-            ? jsx(EmptyState, {
-                title: 'No achievements here',
-                description: query
-                  ? `Nothing matches "${q}". Try a different search.`
-                  : 'Nothing in this state yet — keep using Hermes.'
-              })
+            : isOverview
+              ? null
+              : sorted.length === 0
+              ? jsx(EmptyState, {
+                  title: 'No achievements here',
+                  description: query
+                    ? `Nothing matches "${q}". Try a different search.`
+                    : 'Nothing in this state yet — keep using Hermes.'
+                })
             : jsx('div', {
                 className: 'flex flex-wrap content-start gap-2 px-6 py-4',
                 style: { display: 'flex', flexWrap: 'wrap' },
