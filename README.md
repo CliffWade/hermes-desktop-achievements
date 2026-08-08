@@ -30,10 +30,18 @@ by the `hermes-achievements` dashboard plugin that ships with Hermes Agent.
 - **Weekly mini-stats** — unlocks this week, busiest day, tier counts
 - **Level system** — every tier unlock grants XP; a level 1-50 meta-layer with
   names (Initiate → Hermes) never resets, shown in the header with an XP bar
+- **Quests** — combo requirements (badges across categories + sets + streaks)
+  grant bonus XP
+- **Personal records** — best day, busiest day, biggest and longest session,
+  always beatable
+- **Reward unlock moments** — the watcher celebrates the instant a reward
+  theme unlocks, with an install hint
+- **Weekly + monthly challenges** — time-boxed goals on two cadences for a
+  fast win cycle
+- **Nudges** — a whisper when a locked achievement passes 90% (settings-gated)
+- **Badge wall export** — the full collection as an SVG poster from Export
 - **Category overview** — clickable color-coded chips show per-category
   completion, and any category label filters the grid
-- **Monthly challenges** — six time-boxed goals (sessions, tool calls, active
-  days, unlocks, tier-ups, streak) refresh each month
 - **Custom metric goals** — define goal-based badges ("500 terminal calls")
   computed by the engine, with live progress bars
 - **Session-end recap** — a toast summarizes what a session unlocked once it

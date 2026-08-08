@@ -61,7 +61,7 @@ const TIER_ORDER = ['Copper', 'Silver', 'Gold', 'Diamond', 'Olympian']
 const FILTERS = ['all', 'unlocked', 'discovered', 'secret', 'history', 'custom']
 const UNLOCK_POLL_MS = 15_000
 
-const DEFAULT_SETTINGS = { confetti: true, sound: true, haptic: true, discordWebhook: '' }
+const DEFAULT_SETTINGS = { confetti: true, sound: true, haptic: true, discordWebhook: '', nudges: true }
 let _settings = { ...DEFAULT_SETTINGS }
 
 function tierIndex(tier) {
@@ -361,6 +361,39 @@ let _baselineSet = false
 let _watcherTimer = null
 let _lastTotal = null
 
+// Reward unlock moments: the rewards strip is passive until the watcher
+// notices a reward flip (locked → unlocked), then celebrates loudly and
+// offers to install the theme right away.
+let _knownRewards = new Map() // id -> { id, unlocked }
+let _rewardsBaseline = false
+
+function celebrateRewardUnlock(r) {
+  celebrate({ name: r.name, tier: 'Diamond' }, { milestone: true })
+  host.notify({
+    kind: 'success',
+    message: `🎁 Reward unlocked: ${r.name}! Install it in the Rewards strip or from Appearance.`
+  })
+  postToWebhook(`🎁 Reward unlocked: ${r.name}!`)
+}
+
+function trackRewards(rewards, ctx) {
+  if (!rewards || rewards.length === 0) return
+  const current = new Map(rewards.map(r => [r.id, r.unlocked]))
+  if (!_rewardsBaseline) {
+    _knownRewards = current
+    _rewardsBaseline = true
+    return
+  }
+  for (const [id, unlocked] of current) {
+    const was = _knownRewards.get(id)
+    if (was === false && unlocked === true) {
+      const r = rewards.find(x => x.id === id)
+      if (r) celebrateRewardUnlock(r)
+    }
+    _knownRewards.set(id, unlocked)
+  }
+}
+
 // Session-end recap: unlocks are grouped into "session windows" separated by
 // an idle gap. When a window closes (no new unlocks for SESSION_WINDOW_IDLE_MS)
 // a recap toast summarizes what the session earned.
@@ -390,6 +423,21 @@ function maybeShowSessionRecap() {
 }
 
 setInterval(() => maybeShowSessionRecap(), 30_000)
+
+// Nudge notifications: when a locked achievement passes NUDGE_PCT progress,
+// whisper it once (per app load, per achievement).
+const NUDGE_PCT = 90
+let _nudged = new Set()
+
+function nudgeIfClose(a) {
+  if (!_settings.nudges) return
+  if (a.unlocked || a.state === 'secret') return
+  if (_nudged.has(a.id)) return
+  if ((a.progress_pct ?? 0) < NUDGE_PCT) return
+  _nudged.add(a.id)
+  const target = a.next_threshold ? ` — ${a.next_threshold - (a.progress || 0)} to go` : ''
+  host.notify({ kind: 'info', message: `Almost there: ${a.name} is at ${a.progress_pct}%${target}` })
+}
 
 function notifyUnlock(a) {
   // Set-collection completions are bigger moments: full fanfare + milestone
@@ -449,6 +497,15 @@ async function refreshUnlocks(ctx) {
       postToWebhook(`🎉 Milestone: ${totalNow} achievements unlocked!`)
     }
     _lastTotal = totalNow
+
+    // Reward flips (locked → unlocked) get their own celebration.
+    trackRewards(data?.rewards, ctx)
+
+    // Nudge: locked achievements ≥90% whisper once.
+    if (_settings.nudges) {
+      const locked = (data?.achievements || []).filter(a => !a.unlocked)
+      for (const a of locked) nudgeIfClose(a)
+    }
 
     if (changed) {
       try {
@@ -827,6 +884,12 @@ function SettingsPanel({ open, onClose }) {
             value: local.haptic,
             onChange: v => set('haptic', v)
           }),
+          jsx(ToggleRow, {
+            label: 'Nudges',
+            desc: 'Whisper when a locked achievement passes 90%',
+            value: local.nudges,
+            onChange: v => set('nudges', v)
+          }),
           jsxs('div', {
             className: 'border-t border-(--ui-stroke-secondary) pt-3 mt-1',
             children: [
@@ -969,6 +1032,22 @@ function ExportMenu({ data }) {
                 },
                 className: itemClass,
                 children: 'JSON'
+              }),
+              jsx('button', {
+                type: 'button',
+                onClick: async () => {
+                  setOpen(false)
+                  try {
+                    const svg = await rest('/badge-wall.svg')
+                    const text = typeof svg === 'string' ? svg : JSON.stringify(svg)
+                    downloadText('hermes-achievements-wall.svg', text)
+                    haptic('tap')
+                  } catch (e) {
+                    host.notify({ kind: 'error', message: `Badge wall export failed: ${e?.message ?? e}` })
+                  }
+                },
+                className: itemClass,
+                children: 'Badge wall'
               })
             ]
           })
@@ -1352,12 +1431,23 @@ function RewardsStrip({ rewards }) {
                 children: r.description
               }),
               jsxs('div', {
-                className: 'mt-auto flex items-center justify-between gap-1 pt-1',
+                className: 'mt-1.5 flex items-center justify-between gap-2',
                 children: [
                   jsx('span', {
-                    className: 'truncate text-[0.5625rem] tabular-nums text-(--ui-text-quaternary)',
+                    className: 'truncate text-[0.625rem] tabular-nums text-(--ui-text-quaternary)',
                     children: r.progress || 'not started'
                   }),
+                  r.id === 'theme_streak30' && !r.unlocked
+                    ? (() => {
+                        const m = /longest streak: (\d+)/.exec(r.progress || '')
+                        const cur = m ? parseInt(m[1], 10) : 0
+                        const left = Math.max(0, 30 - cur)
+                        return jsx('span', {
+                          className: 'shrink-0 text-[0.625rem] font-medium text-(--ui-accent)',
+                          children: left === 0 ? '🔥 today?' : `🔥 ${left}d to go`
+                        })
+                      })()
+                    : null,
                   r.unlocked
                     ? jsx('button', {
                         className: cn(
@@ -1876,6 +1966,91 @@ function AchievementPreviewPanel({ card }) {
   })
 }
 
+// ── Personal records strip ──────────────────────────────────────────────────
+
+function RecordsStrip({ records }) {
+  if (!records) return null
+  const items = [
+    records.best_day ? { label: 'Best day', value: `${records.best_day.tool_calls.toLocaleString()} calls`, sub: records.best_day.date } : null,
+    records.busiest_day ? { label: 'Busiest day', value: `${records.busiest_day.sessions} sessions`, sub: records.busiest_day.date } : null,
+    records.biggest_session ? { label: 'Biggest session', value: records.biggest_session.title, sub: `${records.biggest_session.tool_calls} calls` } : null,
+    records.longest_session ? { label: 'Longest session', value: records.longest_session.title, sub: `${records.longest_session.messages} msgs` } : null
+  ].filter(Boolean)
+  if (items.length === 0) return null
+
+  return jsxs('div', {
+    className: 'border-b border-(--ui-stroke-secondary) px-6 py-2.5',
+    children: [
+      jsx('div', {
+        className: 'mb-1.5 text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary)',
+        children: 'Records'
+      }),
+      jsxs('div', {
+        className: 'flex flex-wrap gap-2',
+        style: { display: 'flex', flexWrap: 'wrap' },
+        children: items.map(it =>
+          jsxs('div', {
+            className: 'flex flex-col rounded-lg border border-(--ui-stroke-secondary) bg-(--ui-bg-secondary) p-2',
+            style: { width: 'calc((100% - 24px) / 4)' },
+            children: [
+              jsx('span', { className: 'text-[0.5625rem] font-medium uppercase tracking-wide text-(--ui-text-quaternary)', children: it.label }),
+              jsx('span', { className: 'mt-0.5 truncate text-[0.75rem] font-medium leading-tight', children: it.value }),
+              jsx('span', { className: 'truncate text-[0.5625rem] text-(--ui-text-quaternary)', children: it.sub })
+            ]
+          })
+        )
+      })
+    ]
+  })
+}
+
+// ── Quests strip (combo requirements with bonus XP) ─────────────────────────
+
+function QuestsStrip({ quests }) {
+  if (!quests || quests.length === 0) return null
+  return jsxs('div', {
+    className: 'border-b border-(--ui-stroke-secondary) px-6 py-2.5',
+    children: [
+      jsx('div', {
+        className: 'mb-1.5 text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary)',
+        children: 'Quests'
+      }),
+      jsxs('div', {
+        className: 'flex flex-wrap gap-2',
+        style: { display: 'flex', flexWrap: 'wrap' },
+        children: quests.map(q =>
+          jsxs('div', {
+            key: q.id,
+            className: cn(
+              'flex flex-col rounded-lg border p-2',
+              q.done ? 'border-(--ui-ok)/50 bg-(--ui-ok)/10' : 'border-(--ui-stroke-secondary) bg-(--ui-bg-secondary)'
+            ),
+            style: { width: 'calc((100% - 32px) / 5)' },
+            children: [
+              jsxs('div', {
+                className: 'flex items-center justify-between gap-1',
+                children: [
+                  jsx('span', { className: 'truncate text-[0.75rem] font-medium leading-tight', children: q.name }),
+                  q.done
+                    ? jsx('span', { className: 'shrink-0 text-[0.5625rem] font-medium text-(--ui-ok)', children: `+${q.xp} XP` })
+                    : jsx('span', { className: 'shrink-0 text-[0.5625rem] tabular-nums text-(--ui-text-quaternary)', children: `+${q.xp} XP` })
+                ]
+              }),
+              jsx('span', {
+                className: 'mt-0.5 line-clamp-2 text-[0.625rem] leading-snug text-(--ui-text-tertiary)',
+                children: q.description
+              }),
+              q.done
+                ? jsx('span', { className: 'mt-1 text-[0.5625rem] font-medium text-(--ui-ok)', children: 'Complete' })
+                : null
+            ]
+          })
+        )
+      })
+    ]
+  })
+}
+
 // ── Page ────────────────────────────────────────────────────────────────────
 
 // Category completion chips (click to filter the grid).
@@ -1912,55 +2087,64 @@ function CategoryChips({ categories, active, onSelect }) {
   })
 }
 
-// Monthly challenge strip.
-function ChallengesStrip({ challenges }) {
-  if (!challenges || challenges.length === 0) return null
+// Monthly + weekly challenge strips.
+function ChallengesStrip({ challenges, weekly }) {
+  if ((!challenges || challenges.length === 0) && (!weekly || weekly.length === 0)) return null
+  const renderRow = (title, list) =>
+    jsxs('div', {
+      className: 'mb-2 last:mb-0',
+      children: [
+        jsx('div', {
+          className: 'mb-1.5 text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary)',
+          children: title
+        }),
+        jsxs('div', {
+          className: 'flex flex-wrap gap-2',
+          style: { display: 'flex', flexWrap: 'wrap' },
+          children: list.map(c =>
+            jsxs('div', {
+              key: c.id,
+              className: cn(
+                'flex flex-col rounded-lg border p-2',
+                c.done
+                  ? 'border-(--ui-ok)/50 bg-(--ui-ok)/10'
+                  : 'border-(--ui-stroke-secondary) bg-(--ui-bg-secondary)'
+              ),
+              style: { width: 'calc((100% - 32px) / 5)' },
+              children: [
+                jsxs('div', {
+                  className: 'flex items-center justify-between gap-1',
+                  children: [
+                    jsx('span', { className: 'truncate text-[0.75rem] font-medium leading-tight', children: c.name }),
+                    c.done
+                      ? jsx('span', { className: 'shrink-0 text-[0.5625rem] font-medium text-(--ui-ok)', children: 'Done' })
+                      : jsx('span', {
+                          className: 'shrink-0 text-[0.5625rem] tabular-nums text-(--ui-text-quaternary)',
+                          children: `${c.value}/${c.target}`
+                        })
+                  ]
+                }),
+                jsxs('div', {
+                  className: 'mt-1.5 h-1 w-full overflow-hidden rounded-full bg-(--ui-bg-quaternary)',
+                  children: [
+                    jsx('div', {
+                      className: cn('h-full rounded-full', c.done ? 'bg-(--ui-ok)' : 'bg-(--ui-accent)'),
+                      style: { width: `${Math.min(100, c.pct || 0)}%` }
+                    })
+                  ]
+                })
+              ]
+            })
+          )
+        })
+      ]
+    })
+
   return jsxs('div', {
     className: 'border-b border-(--ui-stroke-secondary) px-6 py-2.5',
     children: [
-      jsx('div', {
-        className: 'mb-1.5 text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary)',
-        children: 'This month'
-      }),
-      jsxs('div', {
-        className: 'flex flex-wrap gap-2',
-        style: { display: 'flex', flexWrap: 'wrap' },
-        children: challenges.map(c =>
-          jsxs('div', {
-            key: c.id,
-            className: cn(
-              'flex flex-col rounded-lg border p-2',
-              c.done
-                ? 'border-(--ui-ok)/50 bg-(--ui-ok)/10'
-                : 'border-(--ui-stroke-secondary) bg-(--ui-bg-secondary)'
-            ),
-            style: { width: 'calc((100% - 32px) / 5)' },
-            children: [
-              jsxs('div', {
-                className: 'flex items-center justify-between gap-1',
-                children: [
-                  jsx('span', { className: 'truncate text-[0.75rem] font-medium leading-tight', children: c.name }),
-                  c.done
-                    ? jsx('span', { className: 'shrink-0 text-[0.5625rem] font-medium text-(--ui-ok)', children: 'Done' })
-                    : jsx('span', {
-                        className: 'shrink-0 text-[0.5625rem] tabular-nums text-(--ui-text-quaternary)',
-                        children: `${c.value}/${c.target}`
-                      })
-                ]
-              }),
-              jsxs('div', {
-                className: 'mt-1.5 h-1 w-full overflow-hidden rounded-full bg-(--ui-bg-quaternary)',
-                children: [
-                  jsx('div', {
-                    className: cn('h-full rounded-full', c.done ? 'bg-(--ui-ok)' : 'bg-(--ui-accent)'),
-                    style: { width: `${Math.min(100, c.pct || 0)}%` }
-                  })
-                ]
-              })
-            ]
-          })
-        )
-      })
+      challenges && challenges.length > 0 ? renderRow('This month', challenges) : null,
+      weekly && weekly.length > 0 ? renderRow('This week', weekly) : null
     ]
   })
 }
@@ -2198,7 +2382,9 @@ function AchievementsPage() {
       filter !== 'history' && filter !== 'custom' ? jsx(MiniStats, { data }) : null,
       filter !== 'history' && filter !== 'custom' ? jsx(ActivityHeatmap, { activity: data.activity }) : null,
       filter !== 'history' && filter !== 'custom' ? jsx(RewardsStrip, { rewards: data.rewards }) : null,
-      filter !== 'history' && filter !== 'custom' ? jsx(ChallengesStrip, { challenges: data.challenges }) : null,
+      filter !== 'history' && filter !== 'custom' ? jsx(RecordsStrip, { records: data.records }) : null,
+      filter !== 'history' && filter !== 'custom' ? jsx(ChallengesStrip, { challenges: data.challenges, weekly: data.weekly }) : null,
+      filter !== 'history' && filter !== 'custom' ? jsx(QuestsStrip, { quests: data.quests }) : null,
       filter !== 'history' && filter !== 'custom' ? jsx(CustomGoalsSection, { data }) : null,
       filter !== 'history' && filter !== 'custom' ? jsx(SessionBadges, {}) : null,
       filter === 'all' ? jsx(NextUpStrip, { items: nextUp }) : null,
