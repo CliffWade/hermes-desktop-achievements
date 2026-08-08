@@ -2785,57 +2785,12 @@ function AchievementsPage() {
     style: { paddingRight: 320 },
     children: [
       jsx(ScoreHeader, { data, onRescan: rescan, rescinding, onOpenSettings: () => setSettingsOpen(true) }),
-      isMain
-        ? jsx(CategoryChips, { categories: data.categories, active: catFilter, onSelect: selectCat })
-        : null,
-      isMain ? jsx(MiniStats, { data }) : null,
-      isOverview
-        ? jsx(Section, {
-            id: 'activity',
-            title: 'Activity',
-            extra: `${(data.activity || []).filter(d => d.sessions > 0).length} active days · last 6 months`,
-            children: jsx(ActivityHeatmap, { activity: data.activity })
-          })
-        : null,
-      isOverview
-        ? jsx(Section, {
-            id: 'rewards',
-            title: 'Rewards',
-            children: jsx(RewardsStrip, { rewards: data.rewards })
-          })
-        : null,
-      isOverview
-        ? jsx(Section, {
-            id: 'records',
-            title: 'Records',
-            children: jsx(RecordsStrip, { records: data.records })
-          })
-        : null,
-      isOverview
-        ? jsx(Section, {
-            id: 'goals',
-            title: 'Goals',
-            children: jsx(ChallengesStrip, { challenges: data.challenges, weekly: data.weekly })
-          })
-        : null,
-      isOverview
-        ? jsx(Section, {
-            id: 'quests',
-            title: 'Quests',
-            children: jsx(QuestsStrip, { quests: data.quests })
-          })
-        : null,
-      isOverview
-        ? jsx(Section, {
-            id: 'custom-goals',
-            title: 'Custom goals',
-            children: jsx(CustomGoalsSection, { data })
-          })
-        : null,
-      isOverview ? jsx(SessionBadges, {}) : null,
-      isOverview ? jsx(NextUpStrip, { items: nextUp, onHover: setHoverItem, onLeave: () => setHoverItem(null) }) : null,
+      // Primary navigation — pinned to the top of the scroll area so tabs
+      // stay reachable while browsing Overview strips or the grid. Opaque
+      // chrome bg covers content scrolling underneath.
       jsxs('div', {
-        className: 'flex flex-wrap items-center gap-2 border-b border-(--ui-stroke-secondary) px-6 py-2',
+        className:
+          'sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b border-(--ui-stroke-secondary) bg-(--ui-bg-chrome) px-6 py-2',
         children: [
           jsxs('div', {
             className: 'flex items-center gap-1',
@@ -2905,6 +2860,55 @@ function AchievementsPage() {
             : null
         ]
       }),
+      isMain
+        ? jsx(CategoryChips, { categories: data.categories, active: catFilter, onSelect: selectCat })
+        : null,
+      isMain ? jsx(MiniStats, { data }) : null,
+      isOverview
+        ? jsx(Section, {
+            id: 'activity',
+            title: 'Activity',
+            extra: `${(data.activity || []).filter(d => d.sessions > 0).length} active days · last 6 months`,
+            children: jsx(ActivityHeatmap, { activity: data.activity })
+          })
+        : null,
+      isOverview
+        ? jsx(Section, {
+            id: 'rewards',
+            title: 'Rewards',
+            children: jsx(RewardsStrip, { rewards: data.rewards })
+          })
+        : null,
+      isOverview
+        ? jsx(Section, {
+            id: 'records',
+            title: 'Records',
+            children: jsx(RecordsStrip, { records: data.records })
+          })
+        : null,
+      isOverview
+        ? jsx(Section, {
+            id: 'goals',
+            title: 'Goals',
+            children: jsx(ChallengesStrip, { challenges: data.challenges, weekly: data.weekly })
+          })
+        : null,
+      isOverview
+        ? jsx(Section, {
+            id: 'quests',
+            title: 'Quests',
+            children: jsx(QuestsStrip, { quests: data.quests })
+          })
+        : null,
+      isOverview
+        ? jsx(Section, {
+            id: 'custom-goals',
+            title: 'Custom goals',
+            children: jsx(CustomGoalsSection, { data })
+          })
+        : null,
+      isOverview ? jsx(SessionBadges, {}) : null,
+      isOverview ? jsx(NextUpStrip, { items: nextUp, onHover: setHoverItem, onLeave: () => setHoverItem(null) }) : null,
       filter === 'history'
         ? jsx(HistoryTab, {})
         : filter === 'custom'
