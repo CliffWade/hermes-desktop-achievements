@@ -361,6 +361,36 @@ let _baselineSet = false
 let _watcherTimer = null
 let _lastTotal = null
 
+// Session-end recap: unlocks are grouped into "session windows" separated by
+// an idle gap. When a window closes (no new unlocks for SESSION_WINDOW_IDLE_MS)
+// a recap toast summarizes what the session earned.
+const SESSION_WINDOW_IDLE_MS = 20 * 60 * 1000
+let _sessionUnlocks = [] // { name, tier, kind }
+let _sessionLastUnlock = 0
+let _sessionRecapShown = false
+
+function noteSessionUnlock(a) {
+  _sessionUnlocks.push({ name: a.name, tier: a.tier, kind: a.kind })
+  _sessionLastUnlock = Date.now()
+  _sessionRecapShown = false
+}
+
+function maybeShowSessionRecap() {
+  if (_sessionUnlocks.length === 0 || _sessionRecapShown) return
+  if (Date.now() - _sessionLastUnlock < SESSION_WINDOW_IDLE_MS) return
+  const count = _sessionUnlocks.length
+  const sets = _sessionUnlocks.filter(u => u.kind === 'collection').length
+  const tiers = _sessionUnlocks.filter(u => u.tier).length
+  const bits = []
+  if (sets) bits.push(`${sets} set${sets === 1 ? '' : 's'}`)
+  if (tiers) bits.push(`${tiers} tier${tiers === 1 ? '' : 's'}`)
+  const detail = bits.length ? ` — ${bits.join(', ')}` : ''
+  host.notify({ kind: 'success', message: `Session recap: ${count} unlock${count === 1 ? '' : 's'}${detail}. Nice run.` })
+  _sessionRecapShown = true
+}
+
+setInterval(() => maybeShowSessionRecap(), 30_000)
+
 function notifyUnlock(a) {
   // Set-collection completions are bigger moments: full fanfare + milestone
   // confetti, plus a distinct message.
@@ -406,6 +436,7 @@ async function refreshUnlocks(ctx) {
     for (const a of unlocked) {
       if (!_known.has(a.id)) {
         _known.set(a.id, { id: a.id, name: a.name, tier: a.tier || null, unlocked_at: a.unlocked_at || Date.now() / 1000 })
+        noteSessionUnlock(a)
         notifyUnlock(a)
         changed = true
       }
@@ -1356,9 +1387,11 @@ function RewardsStrip({ rewards }) {
 function ScoreHeader({ data, onRescan, rescinding, onOpenSettings }) {
   const { unlocked_count, discovered_count, secret_count, total_count } = data
   const pct = total_count ? Math.round((unlocked_count / total_count) * 100) : 0
+  const level = data.level || {}
+  const xpPct = level.xp_for_next ? Math.round((level.xp_in_level / level.xp_for_next) * 100) : 0
 
   return jsxs('div', {
-    className: 'border-b border-(--ui-stroke-secondary) px-6 py-5',
+    className: 'border-b border-(--ui-stroke-secondary) px-6 py-4',
     children: [
       jsxs('div', {
         className: 'flex items-start justify-between gap-4',
@@ -1383,6 +1416,15 @@ function ScoreHeader({ data, onRescan, rescinding, onOpenSettings }) {
                 children: [
                   jsx('span', { children: `${discovered_count} discovered` }),
                   jsx('span', { children: `${secret_count} secret` }),
+                  level.level
+                    ? jsxs('span', {
+                        className: 'inline-flex items-center gap-1 rounded-md border border-(--ui-stroke-secondary) px-1.5 py-0.5 text-[0.6875rem] font-medium text-(--ui-text-primary)',
+                        children: [
+                          jsx('span', { children: `Lv ${level.level}` }),
+                          jsx('span', { className: 'text-(--ui-text-tertiary)', children: level.name })
+                        ]
+                      })
+                    : null,
                   data.generated_at
                     ? jsx('span', {
                         children: `scanned ${relativeTime(data.generated_at * 1000)}`
@@ -1421,12 +1463,40 @@ function ScoreHeader({ data, onRescan, rescinding, onOpenSettings }) {
         ]
       }),
       jsxs('div', {
-        className: 'mt-4 h-1.5 w-full overflow-hidden rounded-full bg-(--ui-bg-quaternary)',
+        className: 'mt-4',
         children: [
-          jsx('div', {
-            className: cn('h-full rounded-full transition-all', 'bg-(--ui-accent)'),
-            style: { width: `${Math.min(100, pct)}%` }
-          })
+          level.level
+            ? jsxs('div', {
+                className: 'flex items-center justify-between text-[0.625rem] text-(--ui-text-tertiary)',
+                children: [
+                  jsx('span', { children: `Level ${level.level} · ${level.name}` }),
+                  jsx('span', {
+                    className: 'tabular-nums',
+                    children: `${level.xp_in_level}/${level.xp_for_next} XP → ${level.next_name}`
+                  })
+                ]
+              })
+            : null,
+          jsxs('div', {
+            className: 'mt-1 h-1.5 w-full overflow-hidden rounded-full bg-(--ui-bg-quaternary)',
+            children: [
+              jsx('div', {
+                className: cn('h-full rounded-full transition-all', 'bg-(--ui-accent)'),
+                style: { width: `${Math.min(100, pct)}%` }
+              })
+            ]
+          }),
+          level.level
+            ? jsxs('div', {
+                className: 'mt-1 h-1 w-full overflow-hidden rounded-full bg-(--ui-bg-quaternary)',
+                children: [
+                  jsx('div', {
+                    className: cn('h-full rounded-full transition-all', 'bg-(--ui-text-tertiary)'),
+                    style: { width: `${Math.min(100, xpPct)}%` }
+                  })
+                ]
+              })
+            : null
         ]
       })
     ]
@@ -1556,7 +1626,7 @@ function SessionBadges() {
 
 // ── Achievement card ────────────────────────────────────────────────────────
 
-function AchievementCard({ item }) {
+function AchievementCard({ item, onCatClick }) {
   const [open, setOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const isSecret = item.state === 'secret'
@@ -1657,8 +1727,15 @@ function AchievementCard({ item }) {
         className: 'mt-1.5 line-clamp-2 text-[0.6875rem] leading-snug text-(--ui-text-tertiary)',
         children: isSecret ? 'Secret achievement — hidden until the first matching signal appears.' : item.description
       }),
-      jsx('span', {
-        className: 'mt-1 inline-block text-[0.5625rem] font-medium uppercase tracking-wide',
+      jsx('button', {
+        type: 'button',
+        onClick: e => {
+          e.stopPropagation()
+          onCatClick && onCatClick(item.category)
+        },
+        title: `Filter: ${item.category}`,
+        className:
+          'mt-1 inline-block self-start text-[0.5625rem] font-medium uppercase tracking-wide transition-opacity hover:opacity-70',
         style: { color: categoryColor(item.category) },
         children: item.category
       }),
@@ -1720,10 +1797,255 @@ function AchievementCard({ item }) {
 
 // ── Page ────────────────────────────────────────────────────────────────────
 
+// Category completion chips (click to filter the grid).
+function CategoryChips({ categories, active, onSelect }) {
+  if (!categories || categories.length === 0) return null
+  return jsxs('div', {
+    className: 'flex flex-wrap gap-1.5 border-b border-(--ui-stroke-secondary) px-6 py-2',
+    children: categories.map(c => {
+      const isActive = active === c.category
+      return jsx('button', {
+        key: c.category,
+        type: 'button',
+        onClick: () => onSelect(isActive ? null : c.category),
+        title: `${c.category}: ${c.unlocked}/${c.total} unlocked`,
+        className: cn(
+          'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[0.625rem] transition-colors',
+          isActive
+            ? 'border-(--ui-accent) bg-(--ui-accent)/10 text-(--ui-text-primary)'
+            : 'border-(--ui-stroke-secondary) text-(--ui-text-tertiary) hover:text-(--ui-text-primary)'
+        ),
+        children: [
+          jsx('span', {
+            className: 'h-2 w-2 rounded-full',
+            style: { backgroundColor: categoryColor(c.category) }
+          }),
+          jsx('span', { children: c.category }),
+          jsx('span', {
+            className: 'tabular-nums text-(--ui-text-quaternary)',
+            children: `${c.unlocked}/${c.total}`
+          })
+        ]
+      })
+    })
+  })
+}
+
+// Monthly challenge strip.
+function ChallengesStrip({ challenges }) {
+  if (!challenges || challenges.length === 0) return null
+  return jsxs('div', {
+    className: 'border-b border-(--ui-stroke-secondary) px-6 py-2.5',
+    children: [
+      jsx('div', {
+        className: 'mb-1.5 text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary)',
+        children: 'This month'
+      }),
+      jsxs('div', {
+        className: 'flex flex-wrap gap-2',
+        style: { display: 'flex', flexWrap: 'wrap' },
+        children: challenges.map(c =>
+          jsxs('div', {
+            key: c.id,
+            className: cn(
+              'flex flex-col rounded-lg border p-2',
+              c.done
+                ? 'border-(--ui-ok)/50 bg-(--ui-ok)/10'
+                : 'border-(--ui-stroke-secondary) bg-(--ui-bg-secondary)'
+            ),
+            style: { width: 'calc((100% - 32px) / 5)' },
+            children: [
+              jsxs('div', {
+                className: 'flex items-center justify-between gap-1',
+                children: [
+                  jsx('span', { className: 'truncate text-[0.75rem] font-medium leading-tight', children: c.name }),
+                  c.done
+                    ? jsx('span', { className: 'shrink-0 text-[0.5625rem] font-medium text-(--ui-ok)', children: 'Done' })
+                    : jsx('span', {
+                        className: 'shrink-0 text-[0.5625rem] tabular-nums text-(--ui-text-quaternary)',
+                        children: `${c.value}/${c.target}`
+                      })
+                ]
+              }),
+              jsxs('div', {
+                className: 'mt-1.5 h-1 w-full overflow-hidden rounded-full bg-(--ui-bg-quaternary)',
+                children: [
+                  jsx('div', {
+                    className: cn('h-full rounded-full', c.done ? 'bg-(--ui-ok)' : 'bg-(--ui-accent)'),
+                    style: { width: `${Math.min(100, c.pct || 0)}%` }
+                  })
+                ]
+              })
+            ]
+          })
+        )
+      })
+    ]
+  })
+}
+
+// Custom metric goals section (goal-based custom badges).
+function CustomGoalsSection({ data }) {
+  const [name, setName] = useState('')
+  const [metric, setMetric] = useState('session_count')
+  const [target, setTarget] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [removing, setRemoving] = useState(null)
+
+  const goals = data.custom_goals || []
+  const options = data.custom_metric_options || {}
+
+  const create = async () => {
+    const t = parseInt(target, 10)
+    if (!name.trim() || !t || t <= 0) {
+      host.notify({ kind: 'error', message: 'Give the goal a name and a positive target.' })
+      return
+    }
+    setSaving(true)
+    try {
+      const res = await rest('/custom-goals', {
+        method: 'POST',
+        body: JSON.stringify({ name: name.trim(), metric, target: t }),
+        headers: { 'Content-Type': 'application/json' }
+      })
+      if (res && res.ok) {
+        setName('')
+        setTarget('')
+        haptic('tap')
+        await queryClient.invalidateQueries({ queryKey: ['hermes-achievements'] })
+      } else {
+        host.notify({ kind: 'error', message: `Create failed: ${res?.error || 'unknown'}` })
+      }
+    } catch (e) {
+      host.notify({ kind: 'error', message: `Create failed: ${e?.message ?? e}` })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const remove = async id => {
+    setRemoving(id)
+    try {
+      await rest(`/custom-goals/${encodeURIComponent(id)}`, { method: 'DELETE' })
+      await queryClient.invalidateQueries({ queryKey: ['hermes-achievements'] })
+    } catch (e) {
+      host.notify({ kind: 'error', message: `Delete failed: ${e?.message ?? e}` })
+    } finally {
+      setRemoving(null)
+    }
+  }
+
+  return jsxs('div', {
+    className: 'border-b border-(--ui-stroke-secondary) px-6 py-2.5',
+    children: [
+      jsx('div', {
+        className: 'mb-1.5 text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary)',
+        children: 'Custom goals'
+      }),
+      jsxs('div', {
+        className: 'mb-2 flex flex-wrap items-center gap-1.5',
+        children: [
+          jsx('input', {
+            className:
+              'w-40 rounded-md border border-(--ui-stroke-secondary) bg-(--ui-bg-secondary) px-2 py-1 text-xs outline-none focus:border-(--ui-accent)',
+            placeholder: 'Goal name…',
+            value: name,
+            onChange: e => setName(e.target.value)
+          }),
+          jsx('select', {
+            className:
+              'rounded-md border border-(--ui-stroke-secondary) bg-(--ui-bg-secondary) px-2 py-1 text-xs outline-none focus:border-(--ui-accent)',
+            value: metric,
+            onChange: e => setMetric(e.target.value),
+            children: Object.entries(options).map(([k, label]) =>
+              jsx('option', { key: k, value: k, children: label })
+            )
+          }),
+          jsx('input', {
+            className:
+              'w-20 rounded-md border border-(--ui-stroke-secondary) bg-(--ui-bg-secondary) px-2 py-1 text-xs tabular-nums outline-none focus:border-(--ui-accent)',
+            placeholder: 'Target',
+            type: 'number',
+            min: 1,
+            value: target,
+            onChange: e => setTarget(e.target.value)
+          }),
+          jsx(Button, {
+            variant: 'secondary',
+            size: 'sm',
+            disabled: saving,
+            onClick: create,
+            children: saving ? 'Adding…' : 'Add goal'
+          })
+        ]
+      }),
+      goals.length === 0
+        ? jsx('p', {
+            className: 'text-[0.6875rem] text-(--ui-text-quaternary)',
+            children: 'No custom goals yet — set one above and watch it fill.'
+          })
+        : jsxs('div', {
+            className: 'flex flex-wrap gap-2',
+            style: { display: 'flex', flexWrap: 'wrap' },
+            children: goals.map(g =>
+              jsxs('div', {
+                key: g.id,
+                className: cn(
+                  'flex flex-col rounded-lg border p-2',
+                  g.done ? 'border-(--ui-ok)/50 bg-(--ui-ok)/10' : 'border-(--ui-stroke-secondary) bg-(--ui-bg-secondary)'
+                ),
+                style: { width: 'calc((100% - 32px) / 5)' },
+                children: [
+                  jsxs('div', {
+                    className: 'flex items-center justify-between gap-1',
+                    children: [
+                      jsx('span', { className: 'truncate text-[0.75rem] font-medium leading-tight', children: g.name }),
+                      jsxs('div', {
+                        className: 'flex shrink-0 items-center gap-1',
+                        children: [
+                          jsx('span', {
+                            className: 'text-[0.5625rem] tabular-nums text-(--ui-text-quaternary)',
+                            children: `${g.value}/${g.target}`
+                          }),
+                          jsx('button', {
+                            type: 'button',
+                            onClick: () => remove(g.id),
+                            disabled: removing === g.id,
+                            title: 'Delete goal',
+                            className:
+                              'rounded border border-(--ui-stroke-secondary) px-1 text-[0.5625rem] text-(--ui-text-tertiary) transition-colors hover:text-(--ui-error)',
+                            children: '✕'
+                          })
+                        ]
+                      })
+                    ]
+                  }),
+                  jsx('span', {
+                    className: 'mt-0.5 truncate text-[0.5625rem] text-(--ui-text-quaternary)',
+                    children: g.metric_label
+                  }),
+                  jsxs('div', {
+                    className: 'mt-1 h-1 w-full overflow-hidden rounded-full bg-(--ui-bg-quaternary)',
+                    children: [
+                      jsx('div', {
+                        className: cn('h-full rounded-full', g.done ? 'bg-(--ui-ok)' : 'bg-(--ui-accent)'),
+                        style: { width: `${Math.min(100, g.pct || 0)}%` }
+                      })
+                    ]
+                  })
+                ]
+              })
+            )
+          })
+    ]
+  })
+}
+
 function AchievementsPage() {
   const [filter, setFilter] = useState('all')
   const [q, setQ] = useState('')
   const [sort, setSort] = useState('progress')
+  const [catFilter, setCatFilter] = useState(null)
   const [rescinding, setRescinding] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
 
@@ -1768,7 +2090,8 @@ function AchievementsPage() {
   const filtered = query
     ? shown.filter(a => `${a.name} ${a.description || ''}`.toLowerCase().includes(query))
     : shown
-  const sorted = [...filtered].sort((a, b) => {
+  const catFiltered = catFilter ? filtered.filter(a => (a.category || 'Other') === catFilter) : filtered
+  const sorted = [...catFiltered].sort((a, b) => {
     if (sort === 'name') return (a.name || '').localeCompare(b.name || '')
     if (sort === 'tier') return tierIndex(b.tier) - tierIndex(a.tier) || (b.progress_pct || 0) - (a.progress_pct || 0)
     if (a.unlocked !== b.unlocked) return a.unlocked ? 1 : -1
@@ -1783,9 +2106,14 @@ function AchievementsPage() {
     className: 'flex h-full min-h-0 flex-col',
     children: [
       jsx(ScoreHeader, { data, onRescan: rescan, rescinding, onOpenSettings: () => setSettingsOpen(true) }),
+      filter !== 'history' && filter !== 'custom'
+        ? jsx(CategoryChips, { categories: data.categories, active: catFilter, onSelect: setCatFilter })
+        : null,
       filter !== 'history' && filter !== 'custom' ? jsx(MiniStats, { data }) : null,
       filter !== 'history' && filter !== 'custom' ? jsx(ActivityHeatmap, { activity: data.activity }) : null,
       filter !== 'history' && filter !== 'custom' ? jsx(RewardsStrip, { rewards: data.rewards }) : null,
+      filter !== 'history' && filter !== 'custom' ? jsx(ChallengesStrip, { challenges: data.challenges }) : null,
+      filter !== 'history' && filter !== 'custom' ? jsx(CustomGoalsSection, { data }) : null,
       filter !== 'history' && filter !== 'custom' ? jsx(SessionBadges, {}) : null,
       filter === 'all' ? jsx(NextUpStrip, { items: nextUp }) : null,
       jsxs('div', {
@@ -1877,7 +2205,13 @@ function AchievementsPage() {
                     // Tailwind build only ships grid-cols-1/2/4/6 — plugin
                     // grid classes get purged. Same trick as the theme pack.
                     style: { width: 'calc((100% - 40px) / 6)' },
-                    children: jsx(AchievementCard, { item: a })
+                    children: jsx(AchievementCard, {
+                      item: a,
+                      onCatClick: cat => {
+                        setFilter('all')
+                        setCatFilter(catFilter === cat ? null : cat)
+                      }
+                    })
                   })
                 )
               }),

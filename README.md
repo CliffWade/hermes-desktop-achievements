@@ -28,6 +28,18 @@ by the `hermes-achievements` dashboard plugin that ships with Hermes Agent.
   webhook URL, persisted across restarts
 - **Milestone celebrations** — a bigger confetti party at every 10 unlocks
 - **Weekly mini-stats** — unlocks this week, busiest day, tier counts
+- **Level system** — every tier unlock grants XP; a level 1-50 meta-layer with
+  names (Initiate → Hermes) never resets, shown in the header with an XP bar
+- **Category overview** — clickable color-coded chips show per-category
+  completion, and any category label filters the grid
+- **Monthly challenges** — six time-boxed goals (sessions, tool calls, active
+  days, unlocks, tier-ups, streak) refresh each month
+- **Custom metric goals** — define goal-based badges ("500 terminal calls")
+  computed by the engine, with live progress bars
+- **Session-end recap** — a toast summarizes what a session unlocked once it
+  goes idle
+- **README badge** — a flat SVG shield (level · unlocks · streak) served by
+  the backend for any README
 - **Activity heatmap** — a GitHub-style year view of session days and tool
   calls, so your streak and rhythm are visible at a glance
 - **Set collections** — finish every achievement in a category to earn a
