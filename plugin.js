@@ -1800,21 +1800,7 @@ function AchievementCard({ item, onCatClick }) {
 // details never cover the grid. Fixed position escapes the scroll container.
 
 function AchievementPreviewPanel({ card }) {
-  if (!card) {
-    return jsxs('div', {
-      className: 'pointer-events-none fixed right-6 top-24 z-30 w-72 rounded-xl border border-(--ui-stroke-secondary) bg-(--ui-bg-primary) p-3 shadow-2xl',
-      children: [
-        jsx('span', {
-          className: 'text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary)',
-          children: 'Preview'
-        }),
-        jsx('p', {
-          className: 'mt-1.5 text-[0.6875rem] leading-relaxed text-(--ui-text-quaternary)',
-          children: 'Hover an achievement to see what it takes.'
-        })
-      ]
-    })
-  }
+  if (!card) return null
   const item = card
   const isSecret = item.state === 'secret'
   const pct = item.progress_pct ?? 0
