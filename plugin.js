@@ -1604,7 +1604,10 @@ function RewardsStrip({ rewards }) {
                   }),
                   r.id === 'theme_streak30' && !r.unlocked
                     ? (() => {
-                        const m = /longest streak: (\d+)/.exec(r.progress || '')
+                        // Countdown from the CURRENT streak (ticks daily while
+                        // you keep using Hermes), not the all-time max (which
+                        // only moves when you set a new record).
+                        const m = /current streak: (\d+)/.exec(r.progress || '')
                         const cur = m ? parseInt(m[1], 10) : 0
                         const left = Math.max(0, 30 - cur)
                         return jsx('span', {
