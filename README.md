@@ -9,10 +9,11 @@ by the `hermes-achievements` dashboard plugin that ships with Hermes Agent.
 ![Achievements Overview](docs/achievements-page.png)
 ![Achievements grid](docs/achievements-grid.png)
 
-The Overview tab shows your dashboard strips (activity, rewards, records,
-goals, quests, custom goals, next up) as color-coded sections; the All /
-Unlocked / Discovered / Secret tabs show just the badge grid with search
-and sort. The tab bar stays pinned while you scroll.
+The achievements page is organized into content tabs: **Badges** (the grid
+with state filters, search, and sort), **Goals** (monthly/weekly challenges
+plus custom goals), **Records** (personal bests and the activity heatmap),
+and **Rewards** (unlockable themes), plus Quests and History. The tab bar
+stays pinned while you scroll.
 
 ## What you get
 
@@ -78,16 +79,15 @@ and sort. The tab bar stays pinned while you scroll.
   page
 - **Share cards** — 1200×630 canvas PNG export for any unlocked badge, ready
   to post
-- **Filter tabs** — Overview / all / unlocked / discovered / secret / history /
-  custom / quests with live counts; the Overview tab holds the dashboard
-  strips, the state tabs hold just the grid
+- **Content tabs** — Badges / Goals / Records / Rewards / Quests / History;
+  the badge grid carries its own state sub-filter (all / unlocked /
+  discovered / secret) plus search and sort inside the Badges tab
 - **Sticky tab bar** — navigation stays pinned to the top while you scroll
-  strips or grid
 - **Quests tab** — all available quests with requirements, XP, and completion
   dates; a "Recently completed" timeline shows the last 5 quests finished
-- **Color-coded sections** — each Overview strip carries a category-palette
-  accent (Activity sky, Rewards gold, Records teal, Goals green, Quests
-  violet, Custom goals coral)
+- **Color-coded sections** — each content tab's sections carry a
+  category-palette accent (Activity sky, Rewards gold, Records teal, Goals
+  green, Custom goals coral)
 - **Search and sort** — filter by name, sort by closest, tier, or name
 - **NEW freshness tag** — badges unlocked in the last 48 hours are marked NEW
 - **Statusbar chip** — live score plus the closest next-up achievement in the

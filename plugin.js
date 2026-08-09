@@ -58,7 +58,9 @@ let rest
 let storageRef = null
 
 const TIER_ORDER = ['Copper', 'Silver', 'Gold', 'Diamond', 'Olympian']
-const FILTERS = ['overview', 'all', 'unlocked', 'discovered', 'secret', 'history', 'custom', 'quests']
+const FILTERS = ['badges', 'goals', 'records', 'rewards', 'quests', 'history']
+// Badge state sub-filter, shown only inside the Badges tab.
+const STATE_FILTERS = ['all', 'unlocked', 'discovered', 'secret']
 const UNLOCK_POLL_MS = 15_000
 
 const DEFAULT_SETTINGS = { confetti: true, sound: true, haptic: true, discordWebhook: '', nudges: true }
@@ -671,7 +673,7 @@ function CustomTab() {
   }
 
   return jsxs('div', {
-    className: 'flex h-full min-h-0 flex-col overflow-y-auto p-6',
+    className: 'border-t border-(--ui-stroke-secondary) p-6',
     children: [
       jsxs('div', {
         className: 'mb-4 flex items-center justify-between gap-3',
@@ -2190,49 +2192,6 @@ function RecordsStrip({ records }) {
   })
 }
 
-// ── Quests strip (combo requirements with bonus XP) ─────────────────────────
-
-function QuestsStrip({ quests }) {
-  if (!quests || quests.length === 0) return null
-  return jsxs('div', {
-    className: 'px-6 pb-2.5',
-    children: [
-      jsxs('div', {
-        className: 'flex flex-wrap gap-2',
-        style: { display: 'flex', flexWrap: 'wrap' },
-        children: quests.map(q =>
-          jsxs('div', {
-            key: q.id,
-            className: cn(
-              'flex flex-col rounded-lg border p-2',
-              q.done ? 'border-(--ui-ok)/50 bg-(--ui-ok)/10' : 'border-(--ui-stroke-secondary) bg-(--ui-bg-secondary)'
-            ),
-            style: { width: 'calc((100% - 32px) / 5)' },
-            children: [
-              jsxs('div', {
-                className: 'flex items-center justify-between gap-1',
-                children: [
-                  jsx('span', { className: 'truncate text-[0.75rem] font-medium leading-tight', children: q.name }),
-                  q.done
-                    ? jsx('span', { className: 'shrink-0 text-[0.5625rem] font-medium text-(--ui-ok)', children: `+${q.xp} XP` })
-                    : jsx('span', { className: 'shrink-0 text-[0.5625rem] tabular-nums text-(--ui-text-quaternary)', children: `+${q.xp} XP` })
-                ]
-              }),
-              jsx('span', {
-                className: 'mt-0.5 line-clamp-2 text-[0.625rem] leading-snug text-(--ui-text-tertiary)',
-                children: q.description
-              }),
-              q.done
-                ? jsx('span', { className: 'mt-1 text-[0.5625rem] font-medium text-(--ui-ok)', children: 'Complete' })
-                : null
-            ]
-          })
-        )
-      })
-    ]
-  })
-}
-
 // ── Collapsible section wrapper ─────────────────────────────────────────────
 // Every strip on the page can collapse to a header row, with the state
 // persisted per section id so the user's layout survives reloads.
@@ -2659,7 +2618,8 @@ function CustomGoalsSection({ data }) {
 }
 
 function AchievementsPage() {
-  const [filter, setFilter] = useState('all')
+  const [filter, setFilter] = useState('badges')
+  const [stateFilter, setStateFilter] = useState('all')
   const [q, setQ] = useState('')
   const [sort, setSort] = useState('progress')
   const [catFilter, setCatFilter] = useState(null)
@@ -2754,8 +2714,8 @@ function AchievementsPage() {
   }
 
   const items = data.achievements || []
-  // Overview shows the full catalog in its strips; state tabs filter by state.
-  const shown = items.filter(a => filter === 'all' || filter === 'overview' || a.state === filter)
+  // The Badges tab filters the grid by badge state (all/unlocked/discovered/secret).
+  const shown = items.filter(a => stateFilter === 'all' || a.state === stateFilter)
   const query = q.trim().toLowerCase()
   const filtered = query
     ? shown.filter(a => `${a.name} ${a.description || ''}`.toLowerCase().includes(query))
@@ -2775,15 +2735,17 @@ function AchievementsPage() {
     .sort((x, y) => (y.progress_pct ?? 0) - (x.progress_pct ?? 0))
     .slice(0, 3)
 
-  // View logic: the filter tabs are the primary navigation.
-  // - 'overview' tab = the dashboard summary strips (activity, rewards,
-  //   records, goals, quests, custom goals, next up) — no grid.
-  // - 'all'/'unlocked'/'discovered'/'secret' tabs = the achievement grid
-  //   with search + sort. Default 'all' lands on the clean grid view.
-  // - 'history'/'custom'/'quests' = dedicated sub-views.
-  const isOverview = filter === 'overview'
-  const isGrid = filter === 'all' || filter === 'unlocked' || filter === 'discovered' || filter === 'secret'
-  const isMain = isOverview || isGrid
+  // View logic: the filter tabs are the primary navigation by CONTENT TYPE.
+  // - 'badges' = the achievement grid (state sub-filter + search + sort inside)
+  // - 'goals' = monthly/weekly challenges + custom metric goals
+  // - 'records' = personal bests + the activity heatmap
+  // - 'rewards' = unlockable theme cards
+  // - 'quests' / 'history' = dedicated views
+  const isBadges = filter === 'badges'
+  const isGoals = filter === 'goals'
+  const isRecords = filter === 'records'
+  const isRewards = filter === 'rewards'
+  const isMain = isBadges
 
   return jsxs('div', {
     className: 'flex h-full flex-col overflow-y-auto',
@@ -2794,26 +2756,16 @@ function AchievementsPage() {
     children: [
       jsx(ScoreHeader, { data, onRescan: rescan, rescinding, onOpenSettings: () => setSettingsOpen(true) }),
       // Primary navigation — pinned to the top of the scroll area so tabs
-      // stay reachable while browsing Overview strips or the grid. Opaque
-      // chrome bg covers content scrolling underneath.
+      // stay reachable while browsing badges, goals, records, or rewards.
+      // Opaque chrome bg covers content scrolling underneath.
       jsxs('div', {
         className:
           'sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b border-(--ui-stroke-secondary) bg-(--ui-bg-chrome) px-6 py-2',
         children: [
           jsxs('div', {
             className: 'flex items-center gap-1',
-            children: FILTERS.map(f => {
-              const count =
-                f === 'all'
-                  ? data.total_count
-                  : f === 'unlocked'
-                    ? data.unlocked_count
-                    : f === 'discovered'
-                      ? data.discovered_count
-                      : f === 'secret'
-                        ? data.secret_count
-                        : null
-              return jsx('button', {
+            children: FILTERS.map(f =>
+              jsx('button', {
                 key: f,
                 className: cn(
                   'rounded-md px-2.5 py-1 text-xs capitalize transition-colors',
@@ -2826,11 +2778,43 @@ function AchievementsPage() {
                   setHoverItem(null)
                   setFilter(f)
                 },
-                children: count === null ? f : `${f} (${count})`
+                children: f
               })
-            })
+            )
           }),
-          isGrid
+          isBadges
+            ? jsxs('div', {
+                className: 'flex items-center gap-1 border-l border-(--ui-stroke-secondary) pl-2',
+                children: STATE_FILTERS.map(f => {
+                  const count =
+                    f === 'all'
+                      ? data.total_count
+                      : f === 'unlocked'
+                        ? data.unlocked_count
+                        : f === 'discovered'
+                          ? data.discovered_count
+                          : f === 'secret'
+                            ? data.secret_count
+                            : null
+                  return jsx('button', {
+                    key: f,
+                    className: cn(
+                      'rounded-md px-2 py-1 text-xs capitalize transition-colors',
+                      stateFilter === f
+                        ? 'bg-(--ui-bg-quaternary) text-(--ui-text-primary)'
+                        : 'text-(--ui-text-tertiary) hover:text-(--ui-text-primary)'
+                    ),
+                    type: 'button',
+                    onClick: () => {
+                      setHoverItem(null)
+                      setStateFilter(f)
+                    },
+                    children: `${f} (${count})`
+                  })
+                })
+              })
+            : null,
+          isBadges
             ? jsxs('div', {
                 className: 'ml-auto flex items-center gap-2',
                 children: [
@@ -2872,7 +2856,17 @@ function AchievementsPage() {
         ? jsx(CategoryChips, { categories: data.categories, active: catFilter, onSelect: selectCat })
         : null,
       isMain ? jsx(MiniStats, { data }) : null,
-      isOverview
+      isBadges ? jsx(SessionBadges, {}) : null,
+      isBadges ? jsx(NextUpStrip, { items: nextUp, onHover: setHoverItem, onLeave: () => setHoverItem(null) }) : null,
+      isRecords
+        ? jsx(Section, {
+            id: 'records',
+            title: 'Records',
+            color: 'hsl(190 70% 48%)',
+            children: jsx(RecordsStrip, { records: data.records })
+          })
+        : null,
+      isRecords
         ? jsx(Section, {
             id: 'activity',
             title: 'Activity',
@@ -2881,7 +2875,7 @@ function AchievementsPage() {
             children: jsx(ActivityHeatmap, { activity: data.activity })
           })
         : null,
-      isOverview
+      isRewards
         ? jsx(Section, {
             id: 'rewards',
             title: 'Rewards',
@@ -2889,15 +2883,7 @@ function AchievementsPage() {
             children: jsx(RewardsStrip, { rewards: data.rewards })
           })
         : null,
-      isOverview
-        ? jsx(Section, {
-            id: 'records',
-            title: 'Records',
-            color: 'hsl(190 70% 48%)',
-            children: jsx(RecordsStrip, { records: data.records })
-          })
-        : null,
-      isOverview
+      isGoals
         ? jsx(Section, {
             id: 'goals',
             title: 'Goals',
@@ -2905,15 +2891,7 @@ function AchievementsPage() {
             children: jsx(ChallengesStrip, { challenges: data.challenges, weekly: data.weekly })
           })
         : null,
-      isOverview
-        ? jsx(Section, {
-            id: 'quests',
-            title: 'Quests',
-            color: 'hsl(250 55% 58%)',
-            children: jsx(QuestsStrip, { quests: data.quests })
-          })
-        : null,
-      isOverview
+      isGoals
         ? jsx(Section, {
             id: 'custom-goals',
             title: 'Custom goals',
@@ -2921,50 +2899,48 @@ function AchievementsPage() {
             children: jsx(CustomGoalsSection, { data })
           })
         : null,
-      isOverview ? jsx(SessionBadges, {}) : null,
-      isOverview ? jsx(NextUpStrip, { items: nextUp, onHover: setHoverItem, onLeave: () => setHoverItem(null) }) : null,
       filter === 'history'
         ? jsx(HistoryTab, {})
-        : filter === 'custom'
-          ? jsx(CustomTab, {})
-          : filter === 'quests'
-            ? jsx(QuestsTab, { data })
-            : isOverview
-              ? null
-              : sorted.length === 0
+        : filter === 'quests'
+          ? jsx(QuestsTab, { data })
+          : isBadges
+            ? sorted.length === 0
               ? jsx(EmptyState, {
                   title: 'No achievements here',
                   description: query
                     ? `Nothing matches "${q}". Try a different search.`
                     : 'Nothing in this state yet — keep using Hermes.'
                 })
-            : jsx('div', {
-                className: 'flex flex-wrap content-start gap-2 px-6 py-4',
-                style: { display: 'flex', flexWrap: 'wrap' },
-                children: sorted.map(a =>
-                  jsx('div', {
-                    key: a.id,
-                    className: 'relative',
-                    onMouseEnter: () => setHoverItem(a),
-                    onMouseLeave: () => setHoverItem(null),
-                    onFocus: () => setHoverItem(a),
-                    onBlur: () => setHoverItem(null),
-                    // Inline width (6 per row at 8px gap) because the app's
-                    // Tailwind build only ships grid-cols-1/2/4/6 — plugin
-                    // grid classes get purged. Same trick as the theme pack.
-                    style: { width: 'calc((100% - 40px) / 6)' },
-                    children: jsx(AchievementCard, {
-                      item: a,
-                      pinned: pinned.includes(a.id),
-                      onTogglePin: togglePin,
-                      onCatClick: cat => {
-                        setFilter('all')
-                        selectCat(cat)
-                      }
+              : jsx('div', {
+                  className: 'flex flex-wrap content-start gap-2 px-6 py-4',
+                  style: { display: 'flex', flexWrap: 'wrap' },
+                  children: sorted.map(a =>
+                    jsx('div', {
+                      key: a.id,
+                      className: 'relative',
+                      onMouseEnter: () => setHoverItem(a),
+                      onMouseLeave: () => setHoverItem(null),
+                      onFocus: () => setHoverItem(a),
+                      onBlur: () => setHoverItem(null),
+                      // Inline width (6 per row at 8px gap) because the app's
+                      // Tailwind build only ships grid-cols-1/2/4/6 — plugin
+                      // grid classes get purged. Same trick as the theme pack.
+                      style: { width: 'calc((100% - 40px) / 6)' },
+                      children: jsx(AchievementCard, {
+                        item: a,
+                        pinned: pinned.includes(a.id),
+                        onTogglePin: togglePin,
+                        onCatClick: cat => {
+                          setFilter('badges')
+                          setStateFilter('all')
+                          selectCat(cat)
+                        }
+                      })
                     })
-                  })
-                )
-              }),
+                  )
+                })
+            : null,
+      isBadges ? jsx(CustomTab, {}) : null,
       jsx(SettingsPanel, { open: settingsOpen, onClose: () => setSettingsOpen(false) }),
       jsx(AchievementPreviewPanel, { card: hoverItem })
     ]
