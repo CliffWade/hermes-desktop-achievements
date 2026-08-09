@@ -58,7 +58,7 @@ let rest
 let storageRef = null
 
 const TIER_ORDER = ['Copper', 'Silver', 'Gold', 'Diamond', 'Olympian']
-const FILTERS = ['badges', 'goals', 'records', 'rewards', 'quests', 'history']
+const FILTERS = ['badges', 'goals', 'records', 'rewards', 'quests', 'custom', 'history']
 // Badge state sub-filter, shown only inside the Badges tab.
 const STATE_FILTERS = ['all', 'unlocked', 'discovered', 'secret']
 const UNLOCK_POLL_MS = 15_000
@@ -673,7 +673,7 @@ function CustomTab() {
   }
 
   return jsxs('div', {
-    className: 'border-t border-(--ui-stroke-secondary) p-6',
+    className: 'flex h-full min-h-0 flex-col overflow-y-auto p-6',
     children: [
       jsxs('div', {
         className: 'mb-4 flex items-center justify-between gap-3',
@@ -2901,8 +2901,10 @@ function AchievementsPage() {
         : null,
       filter === 'history'
         ? jsx(HistoryTab, {})
-        : filter === 'quests'
-          ? jsx(QuestsTab, { data })
+        : filter === 'custom'
+          ? jsx(CustomTab, {})
+          : filter === 'quests'
+            ? jsx(QuestsTab, { data })
           : isBadges
             ? sorted.length === 0
               ? jsx(EmptyState, {
@@ -2940,7 +2942,6 @@ function AchievementsPage() {
                   )
                 })
             : null,
-      isBadges ? jsx(CustomTab, {}) : null,
       jsx(SettingsPanel, { open: settingsOpen, onClose: () => setSettingsOpen(false) }),
       jsx(AchievementPreviewPanel, { card: hoverItem })
     ]

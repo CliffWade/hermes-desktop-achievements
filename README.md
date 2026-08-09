@@ -12,8 +12,8 @@ by the `hermes-achievements` dashboard plugin that ships with Hermes Agent.
 The achievements page is organized into content tabs: **Badges** (the grid
 with state filters, search, and sort), **Goals** (monthly/weekly challenges
 plus custom goals), **Records** (personal bests and the activity heatmap),
-and **Rewards** (unlockable themes), plus Quests and History. The tab bar
-stays pinned while you scroll.
+**Rewards** (unlockable themes), **Custom** (your own badges), and Quests
+and History. The tab bar stays pinned while you scroll.
 
 ## What you get
 
@@ -79,8 +79,8 @@ stays pinned while you scroll.
   page
 - **Share cards** — 1200×630 canvas PNG export for any unlocked badge, ready
   to post
-- **Content tabs** — Badges / Goals / Records / Rewards / Quests / History;
-  the badge grid carries its own state sub-filter (all / unlocked /
+- **Content tabs** — Badges / Goals / Records / Rewards / Custom / Quests /
+  History; the badge grid carries its own state sub-filter (all / unlocked /
   discovered / secret) plus search and sort inside the Badges tab
 - **Sticky tab bar** — navigation stays pinned to the top while you scroll
 - **Quests tab** — all available quests with requirements, XP, and completion
