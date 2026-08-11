@@ -852,7 +852,7 @@ function RecentAchievements() {
           key: item.id,
           className: 'relative',
           style: { width: 'calc((100% - 40px) / 6)', animationDelay: `${i * 35}ms` },
-          children: jsx(AchievementCard, { item })
+          children: jsx(AchievementCard, { item, showPin: false })
         })
       })
     })
@@ -1949,7 +1949,7 @@ function SessionBadges() {
 
 // ── Achievement card ────────────────────────────────────────────────────────
 
-function AchievementCard({ item, onCatClick, pinned, onTogglePin }) {
+function AchievementCard({ item, onCatClick, pinned, onTogglePin, showPin = true }) {
   const [open, setOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const isSecret = item.state === 'secret'
@@ -1975,19 +1975,21 @@ function AchievementCard({ item, onCatClick, pinned, onTogglePin }) {
       backgroundColor: categoryBg(item.category)
     },
     children: [
-      jsx('button', {
-        type: 'button',
-        onClick: e => {
-          e.stopPropagation()
-          onTogglePin && onTogglePin(item.id)
-        },
-        title: pinned ? 'Unpin' : 'Pin to top',
-        className: cn(
-          'absolute right-1.5 top-1 z-10 rounded p-0.5 text-[0.625rem] transition-opacity hover:opacity-100',
-          pinned ? 'text-(--ui-accent) opacity-100' : 'text-(--ui-text-quaternary) opacity-0 group-hover:opacity-100'
-        ),
-        children: pinned ? '📌' : '📌'
-      }),
+      showPin
+        ? jsx('button', {
+            type: 'button',
+            onClick: e => {
+              e.stopPropagation()
+              onTogglePin && onTogglePin(item.id)
+            },
+            title: pinned ? 'Unpin' : 'Pin to top',
+            className: cn(
+              'absolute right-1.5 top-1 z-10 rounded p-0.5 text-[0.625rem] transition-opacity hover:opacity-100',
+              pinned ? 'text-(--ui-accent) opacity-100' : 'text-(--ui-text-quaternary) opacity-0 group-hover:opacity-100'
+            ),
+            children: pinned ? '📌' : '📌'
+          })
+        : null,
       jsxs('div', {
         className: 'flex items-start justify-between gap-1.5',
         children: [
