@@ -817,7 +817,7 @@ function RecentAchievements() {
   const items = (Array.isArray(data) ? data : []).slice(0, 6)
   if (isLoading) {
     return jsx('div', {
-      className: 'flex flex-wrap gap-2',
+      className: 'flex flex-wrap gap-2 px-6 py-2.5',
       children: Array.from({ length: 6 }, () => jsx(Skeleton, { className: 'h-24 rounded-lg', style: { width: 'calc((100% - 40px) / 6)' } }))
     })
   }
@@ -829,7 +829,7 @@ function RecentAchievements() {
     extra: 'latest unlocks',
     color: 'hsl(265 70% 55%)',
     children: jsxs('div', {
-      className: 'flex flex-wrap gap-2',
+      className: 'flex flex-wrap gap-2 px-6 py-2.5',
       children: items.map((a, i) => {
         // Shape the recent-unlock row into the same item AchievementCard
         // consumes (the grid below), with unlocked_at preserved so the
