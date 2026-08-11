@@ -87,10 +87,14 @@ function stateBadgeClass(state) {
 
 // ── Responsive card columns ─────────────────────────────────────────────────
 // Every card strip (Next Up, Recent, grid, Rewards, Records, Goals, Quests)
-// must adapt its columns to the window width — users run Hermes at every
-// size, and a hardcoded /6 crushes cards on narrow windows and stretches
-// them absurdly on ultrawides. One hook + one width helper keeps every
-// strip on the same rhythm so rows stay aligned with each other.
+// must adapt its columns to the ACTUAL SPACE AVAILABLE — not just the window
+// width. Users run Hermes across monitors of every size and resolution
+// (retina 2x, 4K, ultrawide, small laptops) and with different sidebar/gutter
+// widths, so the column count is measured from the card container itself via
+// ResizeObserver. That one measurement absorbs: window resizes, monitor size
+// and DPI (CSS px are resolution-normalized), sidebar width, preview gutter,
+// and zoom. Breakpoints on the container width keep every strip on the same
+// rhythm so rows stay aligned with each other at any size.
 const COLS_BY_WIDTH = [
   [2000, 6],
   [1500, 5],
@@ -99,28 +103,40 @@ const COLS_BY_WIDTH = [
   [0, 2]
 ]
 
-function useCardCols() {
-  const compute = () => {
-    const w = typeof window !== 'undefined' ? window.innerWidth : 2000
-    for (const [min, cols] of COLS_BY_WIDTH) {
-      if (w >= min) return cols
-    }
-    return 2
+function _colsForWidth(w) {
+  for (const [min, cols] of COLS_BY_WIDTH) {
+    if (w >= min) return cols
   }
-  const [cols, setCols] = useState(compute)
+  return 2
+}
+
+// Returns [ref, cols]. Attach ref to the strip's flex container; cols is the
+// column count for that container's measured width. Falls back to
+// window.innerWidth when the element isn't mounted yet (early-return strips).
+function useCardCols() {
+  const [cols, setCols] = useState(() =>
+    typeof window !== 'undefined' ? _colsForWidth(window.innerWidth) : 6
+  )
+  const ref = useRef(null)
+
   useEffect(() => {
-    let raf = 0
-    const onResize = () => {
-      cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(() => setCols(compute()))
+    const el = ref.current
+    if (!el || typeof ResizeObserver === 'undefined') {
+      // Fallback: no element or no RO support — use window size.
+      const onResize = () => setCols(_colsForWidth(window.innerWidth))
+      window.addEventListener('resize', onResize)
+      return () => window.removeEventListener('resize', onResize)
     }
-    window.addEventListener('resize', onResize)
-    return () => {
-      cancelAnimationFrame(raf)
-      window.removeEventListener('resize', onResize)
-    }
+    const ro = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        setCols(_colsForWidth(entry.contentRect.width))
+      }
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
   }, [])
-  return cols
+
+  return [ref, cols]
 }
 
 // Width for one card in a flex row of `cols` columns separated by `gap` px.
@@ -859,9 +875,10 @@ function RecentAchievements() {
   })
 
   const items = (Array.isArray(data) ? data : []).slice(0, 6)
-  const cols = useCardCols()
+  const [ref, cols] = useCardCols()
   if (isLoading) {
     return jsx('div', {
+      ref,
       className: 'flex flex-wrap gap-2 px-6 py-2.5',
       children: Array.from({ length: cols }, () => jsx(Skeleton, { className: 'h-24 rounded-lg', style: { width: cardWidth(cols) } }))
     })
@@ -874,6 +891,7 @@ function RecentAchievements() {
     extra: 'latest unlocks',
     color: 'hsl(265 70% 55%)',
     children: jsxs('div', {
+      ref,
       className: 'flex flex-wrap gap-2 px-6 py-2.5',
       children: items.map((a, i) => {
         // Shape the recent-unlock row into the same item AchievementCard
@@ -1629,7 +1647,7 @@ function ActivityHeatmap({ activity }) {
 function RewardsStrip({ rewards }) {
   const [installing, setInstalling] = useState(null)
   const [installed, setInstalled] = useState({})
-  const cols = useCardCols()
+  const [ref, cols] = useCardCols()
 
   if (!rewards || rewards.length === 0) return null
 
@@ -1659,6 +1677,7 @@ function RewardsStrip({ rewards }) {
   }[id] || '🎁')
 
   return jsxs('div', {
+    ref,
     className: 'px-6 pb-2.5',
     children: [
       jsx('div', {
@@ -1868,10 +1887,11 @@ function ScoreHeader({ data, onRescan, rescinding, onOpenSettings }) {
 // ── Next up strip ───────────────────────────────────────────────────────────
 
 function NextUpStrip({ items, onHover, onLeave }) {
-  const cols = useCardCols()
+  const [ref, cols] = useCardCols()
   if (!items || items.length === 0) return null
 
   return jsxs('div', {
+    ref,
     className: 'border-b border-(--ui-stroke-secondary) px-6 py-2.5',
     children: [
       jsx('div', {
@@ -2225,7 +2245,7 @@ function AchievementPreviewPanel({ card }) {
 // ── Personal records strip ──────────────────────────────────────────────────
 
 function RecordsStrip({ records }) {
-  const cols = useCardCols()
+  const [ref, cols] = useCardCols()
   if (!records) return null
   const items = [
     records.best_day ? { label: 'Best day', value: `${records.best_day.tool_calls.toLocaleString()} calls`, sub: records.best_day.date } : null,
@@ -2236,6 +2256,7 @@ function RecordsStrip({ records }) {
   if (items.length === 0) return null
 
   return jsxs('div', {
+    ref,
     className: 'px-6 pb-2.5',
     children: [
       jsxs('div', {
@@ -2370,7 +2391,7 @@ function CategoryChips({ categories, active, onSelect }) {
 
 // Monthly + weekly challenge strips.
 function ChallengesStrip({ challenges, weekly }) {
-  const cols = useCardCols()
+  const [ref, cols] = useCardCols()
   if ((!challenges || challenges.length === 0) && (!weekly || weekly.length === 0)) return null
   const renderRow = (title, list) =>
     jsxs('div', {
@@ -2423,6 +2444,7 @@ function ChallengesStrip({ challenges, weekly }) {
     })
 
   return jsxs('div', {
+    ref,
     className: 'px-6 pb-2.5',
     children: [
       challenges && challenges.length > 0 ? renderRow('This month', challenges) : null,
@@ -2436,7 +2458,7 @@ function ChallengesStrip({ challenges, weekly }) {
 function QuestsTab({ data }) {
   const quests = data?.quests || []
   const recent = data?.recently_completed_quests || []
-  const cols = useCardCols()
+  const [ref, cols] = useCardCols()
 
   if (quests.length === 0) {
     return jsx(EmptyState, {
@@ -2446,6 +2468,7 @@ function QuestsTab({ data }) {
   }
 
   return jsx('div', {
+    ref,
     className: 'flex-1 overflow-y-auto p-6',
     children: [
       recent.length > 0
@@ -2538,7 +2561,7 @@ function CustomGoalsSection({ data }) {
   const [target, setTarget] = useState('')
   const [saving, setSaving] = useState(false)
   const [removing, setRemoving] = useState(null)
-  const cols = useCardCols()
+  const [ref, cols] = useCardCols()
 
   const goals = data.custom_goals || []
   const options = data.custom_metric_options || {}
@@ -2584,6 +2607,7 @@ function CustomGoalsSection({ data }) {
   }
 
   return jsxs('div', {
+    ref,
     className: 'px-6 pb-2.5',
     children: [
       jsxs('div', {
@@ -2696,7 +2720,7 @@ function AchievementsPage() {
   const [rescinding, setRescinding] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const searchRef = useRef(null)
-  const cols = useCardCols()
+  const [gridRef, cols] = useCardCols()
 
   // Palette "Find a badge" focuses the search input on arrival.
   useEffect(() => {
@@ -2989,6 +3013,7 @@ function AchievementsPage() {
                   color: 'hsl(220 60% 55%)',
                   extra: `${sorted.length} shown`,
                   children: jsx('div', {
+                    ref: gridRef,
                     className: 'flex flex-wrap content-start gap-2 px-6 py-4',
                     style: { display: 'flex', flexWrap: 'wrap' },
                     children: sorted.map(a =>
