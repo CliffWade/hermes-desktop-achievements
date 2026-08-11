@@ -801,7 +801,79 @@ function CustomTab() {
   })
 }
 
-// ── History timeline ────────────────────────────────────────────────────────
+// ── Recent achievements (main dashboard) ───────────────────────────────────
+
+// Compact colorful strip of the latest unlocks on the main Badges view.
+function RecentAchievements() {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['hermes-achievements', 'recent'],
+    queryFn: () => rest('/recent-unlocks'),
+    refetchInterval: 120_000
+  })
+
+  const items = (Array.isArray(data) ? data : []).slice(0, 6)
+  if (isLoading) {
+    return jsx('div', {
+      className: 'grid gap-2.5 px-6 pt-2',
+      style: { gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' },
+      children: Array.from({ length: 3 }, () => jsx(Skeleton, { className: 'h-16 w-full rounded-xl' }))
+    })
+  }
+  if (isError || items.length === 0) return null
+
+  return jsx(Section, {
+    id: 'recent',
+    title: 'Recent achievements',
+    extra: 'latest unlocks',
+    color: 'hsl(265 70% 55%)',
+    children: jsxs('div', {
+      className: 'grid gap-2.5',
+      style: { gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' },
+      children: items.map((a, i) => {
+        const tier = a.tier || ''
+        const hex = TIER_HEX[tier] || '#7a5fb0'
+        const label = (a.name || a.id || 'Achievement').toString()
+        const tierEmoji = { Copper: '🥉', Silver: '🥈', Gold: '🥇', Diamond: '💎', Olympian: '🏆' }
+        return jsxs('div', {
+          key: a.id || i,
+          className:
+            'flex items-center gap-2.5 rounded-xl border border-(--ui-stroke-secondary) bg-(--ui-bg-chrome) p-3 transition-all hover:-translate-y-0.5 hover:shadow-lg',
+          style: { animationDelay: `${i * 35}ms` },
+          children: [
+            jsx('div', {
+              className: 'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base text-white',
+              style: { background: `linear-gradient(135deg, ${hex} 0%, ${hex}cc 100%)`, boxShadow: `0 3px 8px ${hex}55` },
+              children: a.emoji || tierEmoji[tier] || '🏅'
+            }),
+            jsxs('div', {
+              className: 'min-w-0 flex-1',
+              children: [
+                jsx('span', { className: 'block truncate text-xs font-bold text-(--ui-text-primary)', title: label, children: label }),
+                jsxs('span', {
+                  className: 'block truncate text-[0.625rem] text-(--ui-text-secondary)',
+                  children: [
+                    a.unlocked_at ? relativeTime(a.unlocked_at * 1000) : 'recently unlocked',
+                    tier ? ` · ${tier}` : ''
+                  ]
+                })
+              ]
+            }),
+            jsx('button', {
+              type: 'button',
+              onClick: () => celebrate({ name: label, tier }, {}),
+              title: 'Replay celebration',
+              className:
+                'shrink-0 rounded-md px-1.5 py-1 text-[0.625rem] text-(--ui-text-tertiary) transition-colors hover:bg-(--ui-bg-quaternary) hover:text-(--ui-text-primary)',
+              children: 'replay'
+            })
+          ]
+        })
+      })
+    })
+  })
+}
+
+
 
 function HistoryTab() {
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -2861,6 +2933,7 @@ function AchievementsPage() {
       isMain ? jsx(MiniStats, { data }) : null,
       isBadges ? jsx(SessionBadges, {}) : null,
       isBadges ? jsx(NextUpStrip, { items: nextUp, onHover: setHoverItem, onLeave: () => setHoverItem(null) }) : null,
+      isBadges ? jsx(RecentAchievements, {}) : null,
       isRecords
         ? jsx(Section, {
             id: 'records',
