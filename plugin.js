@@ -804,6 +804,9 @@ function CustomTab() {
 // ── Recent achievements (main dashboard) ───────────────────────────────────
 
 // Compact colorful strip of the latest unlocks on the main Badges view.
+// Renders the SAME AchievementCard used in the grid below, so the row
+// looks identical to the cards under it — same height, same density,
+// same 6-column rhythm.
 function RecentAchievements() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['hermes-achievements', 'recent'],
@@ -815,7 +818,7 @@ function RecentAchievements() {
   if (isLoading) {
     return jsx('div', {
       className: 'flex flex-wrap gap-2',
-      children: Array.from({ length: 6 }, () => jsx(Skeleton, { className: 'h-16 rounded-xl', style: { width: 'calc((100% - 40px) / 6)' } }))
+      children: Array.from({ length: 6 }, () => jsx(Skeleton, { className: 'h-24 rounded-lg', style: { width: 'calc((100% - 40px) / 6)' } }))
     })
   }
   if (isError || items.length === 0) return null
@@ -828,52 +831,28 @@ function RecentAchievements() {
     children: jsxs('div', {
       className: 'flex flex-wrap gap-2',
       children: items.map((a, i) => {
-        const tier = a.tier || ''
-        const tierHex = TIER_HEX[tier] || '#7a5fb0'
-        // Card identity is the CATEGORY (same as Next Up and the badge
-        // grid): left accent bar + tinted fill from categoryColor/Bg.
-        const cat = a.category || ''
-        const catHex = categoryColor(cat)
-        const label = (a.name || a.id || 'Achievement').toString()
-        const tierEmoji = { Copper: '🥉', Silver: '🥈', Gold: '🥇', Diamond: '💎', Olympian: '🏆' }
-        return jsxs('div', {
-          key: a.id || i,
-          className:
-            'flex items-center gap-2.5 rounded-xl border border-(--ui-stroke-secondary) p-3 transition-all hover:-translate-y-0.5 hover:shadow-lg',
-          style: { animationDelay: `${i * 35}ms`, width: 'calc((100% - 40px) / 6)', borderLeft: `3px solid ${catHex}`, backgroundColor: categoryBg(cat) },
-          children: [
-            jsx('div', {
-              className: 'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base text-white',
-              style: { background: `linear-gradient(135deg, ${tierHex} 0%, ${tierHex}cc 100%)`, boxShadow: `0 3px 8px ${tierHex}55` },
-              children: a.emoji || tierEmoji[tier] || '🏅'
-            }),
-            jsxs('div', {
-              className: 'min-w-0 flex-1',
-              children: [
-                jsx('span', { className: 'block truncate text-xs font-bold text-(--ui-text-primary)', title: label, children: label }),
-                jsxs('span', {
-                  className: 'block truncate text-[0.625rem]',
-                  children: [
-                    jsx('span', { className: 'text-(--ui-text-secondary)', children: a.unlocked_at ? relativeTime(a.unlocked_at * 1000) : 'recently unlocked' }),
-                    tier
-                      ? jsx('span', { className: 'font-semibold', style: { color: tierHex }, children: ` · ${tier}` })
-                      : null,
-                    cat
-                      ? jsx('span', { className: 'font-medium uppercase tracking-wide', style: { color: catHex }, children: ` · ${cat}` })
-                      : null
-                  ]
-                })
-              ]
-            }),
-            jsx('button', {
-              type: 'button',
-              onClick: () => celebrate({ name: label, tier }, {}),
-              title: 'Replay celebration',
-              className:
-                'shrink-0 rounded-md px-1.5 py-1 text-[0.625rem] text-(--ui-text-tertiary) transition-colors hover:bg-(--ui-bg-quaternary) hover:text-(--ui-text-primary)',
-              children: 'replay'
-            })
-          ]
+        // Shape the recent-unlock row into the same item AchievementCard
+        // consumes (the grid below), with unlocked_at preserved so the
+        // NEW badge and relative time render.
+        const item = {
+          id: a.id || `recent-${i}`,
+          name: a.name || a.id || 'Achievement',
+          category: a.category || '',
+          tier: a.tier || null,
+          state: a.state || 'unlocked',
+          unlocked: true,
+          unlocked_at: a.unlocked_at,
+          description: a.description || 'Recently unlocked achievement.',
+          criteria: a.criteria || '',
+          progress_pct: 100,
+          next_tier: null,
+          next_threshold: null
+        }
+        return jsx('div', {
+          key: item.id,
+          className: 'relative',
+          style: { width: 'calc((100% - 40px) / 6)', animationDelay: `${i * 35}ms` },
+          children: jsx(AchievementCard, { item })
         })
       })
     })
