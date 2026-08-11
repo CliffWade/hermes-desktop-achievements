@@ -2975,33 +2975,39 @@ function AchievementsPage() {
                     ? `Nothing matches "${q}". Try a different search.`
                     : 'Nothing in this state yet — keep using Hermes.'
                 })
-              : jsx('div', {
-                  className: 'flex flex-wrap content-start gap-2 px-6 py-4',
-                  style: { display: 'flex', flexWrap: 'wrap' },
-                  children: sorted.map(a =>
-                    jsx('div', {
-                      key: a.id,
-                      className: 'relative',
-                      onMouseEnter: () => setHoverItem(a),
-                      onMouseLeave: () => setHoverItem(null),
-                      onFocus: () => setHoverItem(a),
-                      onBlur: () => setHoverItem(null),
-                      // Inline width (6 per row at 8px gap) because the app's
-                      // Tailwind build only ships grid-cols-1/2/4/6 — plugin
-                      // grid classes get purged. Same trick as the theme pack.
-                      style: { width: 'calc((100% - 40px) / 6)' },
-                      children: jsx(AchievementCard, {
-                        item: a,
-                        pinned: pinned.includes(a.id),
-                        onTogglePin: togglePin,
-                        onCatClick: cat => {
-                          setFilter('badges')
-                          setStateFilter('all')
-                          selectCat(cat)
-                        }
+              : jsx(Section, {
+                  id: 'all-achievements',
+                  title: 'All achievements',
+                  color: 'hsl(220 60% 55%)',
+                  extra: `${sorted.length} shown`,
+                  children: jsx('div', {
+                    className: 'flex flex-wrap content-start gap-2 px-6 py-4',
+                    style: { display: 'flex', flexWrap: 'wrap' },
+                    children: sorted.map(a =>
+                      jsx('div', {
+                        key: a.id,
+                        className: 'relative',
+                        onMouseEnter: () => setHoverItem(a),
+                        onMouseLeave: () => setHoverItem(null),
+                        onFocus: () => setHoverItem(a),
+                        onBlur: () => setHoverItem(null),
+                        // Inline width (6 per row at 8px gap) because the app's
+                        // Tailwind build only ships grid-cols-1/2/4/6 — plugin
+                        // grid classes get purged. Same trick as the theme pack.
+                        style: { width: 'calc((100% - 40px) / 6)' },
+                        children: jsx(AchievementCard, {
+                          item: a,
+                          pinned: pinned.includes(a.id),
+                          onTogglePin: togglePin,
+                          onCatClick: cat => {
+                            setFilter('badges')
+                            setStateFilter('all')
+                            selectCat(cat)
+                          }
+                        })
                       })
-                    })
-                  )
+                    )
+                  })
                 })
             : null,
       jsx(SettingsPanel, { open: settingsOpen, onClose: () => setSettingsOpen(false) }),
