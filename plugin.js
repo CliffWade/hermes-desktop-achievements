@@ -814,9 +814,8 @@ function RecentAchievements() {
   const items = (Array.isArray(data) ? data : []).slice(0, 6)
   if (isLoading) {
     return jsx('div', {
-      className: 'grid gap-2.5 px-6 pt-2',
-      style: { gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' },
-      children: Array.from({ length: 3 }, () => jsx(Skeleton, { className: 'h-16 w-full rounded-xl' }))
+      className: 'flex flex-wrap gap-2',
+      children: Array.from({ length: 6 }, () => jsx(Skeleton, { className: 'h-16 rounded-xl', style: { width: 'calc((100% - 40px) / 6)' } }))
     })
   }
   if (isError || items.length === 0) return null
@@ -827,8 +826,7 @@ function RecentAchievements() {
     extra: 'latest unlocks',
     color: 'hsl(265 70% 55%)',
     children: jsxs('div', {
-      className: 'grid gap-2.5',
-      style: { gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' },
+      className: 'flex flex-wrap gap-2',
       children: items.map((a, i) => {
         const tier = a.tier || ''
         const tierHex = TIER_HEX[tier] || '#7a5fb0'
@@ -842,7 +840,7 @@ function RecentAchievements() {
           key: a.id || i,
           className:
             'flex items-center gap-2.5 rounded-xl border border-(--ui-stroke-secondary) p-3 transition-all hover:-translate-y-0.5 hover:shadow-lg',
-          style: { animationDelay: `${i * 35}ms`, borderLeft: `3px solid ${catHex}`, backgroundColor: categoryBg(cat) },
+          style: { animationDelay: `${i * 35}ms`, width: 'calc((100% - 40px) / 6)', borderLeft: `3px solid ${catHex}`, backgroundColor: categoryBg(cat) },
           children: [
             jsx('div', {
               className: 'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base text-white',
