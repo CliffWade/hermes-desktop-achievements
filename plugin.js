@@ -1835,64 +1835,18 @@ function NextUpStrip({ items, onHover, onLeave }) {
         className: 'flex flex-wrap gap-2',
         style: { display: 'flex', flexWrap: 'wrap' },
         children: items.map(a =>
-          jsxs('div', {
+          jsx('div', {
             key: a.id,
-            className: 'relative flex flex-col rounded-lg border border-(--ui-stroke-secondary) p-2',
+            className: 'relative',
             onMouseEnter: () => onHover && onHover(a),
             onMouseLeave: () => onLeave && onLeave(),
             onFocus: () => onHover && onHover(a),
             onBlur: () => onLeave && onLeave(),
             // Inline width (6 per row at 8px gap) — purge-proof, same
-            // density as the achievement grid below. Category identity
-            // matches the main cards: left accent + tinted fill.
-            style: {
-              width: 'calc((100% - 40px) / 6)',
-              borderLeft: `3px solid ${categoryColor(a.category)}`,
-              backgroundColor: categoryBg(a.category)
-            },
-            children: [
-              jsxs('div', {
-                className: 'flex items-center justify-between gap-1',
-                children: [
-                  jsx('span', { className: 'truncate text-[0.8125rem] font-medium leading-tight', children: a.name }),
-                  jsx('span', {
-                    className: 'shrink-0 text-[0.625rem] tabular-nums text-(--ui-text-tertiary)',
-                    children: `${a.progress_pct ?? 0}%`
-                  })
-                ]
-              }),
-              jsxs('div', {
-                className: 'mt-1.5 h-1 w-full overflow-hidden rounded-full bg-(--ui-bg-quaternary)',
-                children: [
-                  jsx('div', {
-                    className: 'h-full rounded-full',
-                    style: {
-                      ...tierProgressStyle(a.state, a.next_tier),
-                      width: `${Math.min(100, a.progress_pct ?? 0)}%`
-                    }
-                  })
-                ]
-              }),
-              jsx('span', {
-                className: 'mt-1 inline-block text-[0.5625rem] font-medium uppercase tracking-wide',
-                style: { color: categoryColor(a.category) },
-                children: a.category
-              }),
-              a.next_tier
-                ? jsx('div', {
-                    className: 'mt-0.5 flex items-center justify-between gap-1 text-[0.5625rem] text-(--ui-text-quaternary)',
-                    children: [
-                      jsx('span', { className: 'truncate', children: `next: ${a.next_tier} · ${a.next_threshold}` }),
-                      a.eta_days
-                        ? jsx('span', {
-                            className: 'shrink-0 tabular-nums',
-                            children: `~${a.eta_days}d`
-                          })
-                        : null
-                    ]
-                  })
-                : null
-            ]
+            // density as the achievement grid. Same card component as the
+            // grid and Recent row so all sections match in height/density.
+            style: { width: 'calc((100% - 40px) / 6)' },
+            children: jsx(AchievementCard, { item: a, showPin: false })
           })
         )
       })
