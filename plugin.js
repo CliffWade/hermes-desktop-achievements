@@ -834,11 +834,15 @@ function RecentAchievements() {
         const hex = TIER_HEX[tier] || '#7a5fb0'
         const label = (a.name || a.id || 'Achievement').toString()
         const tierEmoji = { Copper: '🥉', Silver: '🥈', Gold: '🥇', Diamond: '💎', Olympian: '🏆' }
+        // Tint the tile background with the tier hue at low alpha (same
+        // categoryBg trick the Next Up cards use), with a full-alpha left
+        // accent bar so the row reads colored like everything else.
+        const tileBg = `${hex}14`
         return jsxs('div', {
           key: a.id || i,
           className:
-            'flex items-center gap-2.5 rounded-xl border border-(--ui-stroke-secondary) bg-(--ui-bg-chrome) p-3 transition-all hover:-translate-y-0.5 hover:shadow-lg',
-          style: { animationDelay: `${i * 35}ms` },
+            'flex items-center gap-2.5 rounded-xl border border-(--ui-stroke-secondary) p-3 transition-all hover:-translate-y-0.5 hover:shadow-lg',
+          style: { animationDelay: `${i * 35}ms`, borderLeft: `3px solid ${hex}`, backgroundColor: tileBg },
           children: [
             jsx('div', {
               className: 'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base text-white',
@@ -850,10 +854,12 @@ function RecentAchievements() {
               children: [
                 jsx('span', { className: 'block truncate text-xs font-bold text-(--ui-text-primary)', title: label, children: label }),
                 jsxs('span', {
-                  className: 'block truncate text-[0.625rem] text-(--ui-text-secondary)',
+                  className: 'block truncate text-[0.625rem]',
                   children: [
-                    a.unlocked_at ? relativeTime(a.unlocked_at * 1000) : 'recently unlocked',
-                    tier ? ` · ${tier}` : ''
+                    jsx('span', { className: 'text-(--ui-text-secondary)', children: a.unlocked_at ? relativeTime(a.unlocked_at * 1000) : 'recently unlocked' }),
+                    tier
+                      ? jsx('span', { className: 'font-semibold', style: { color: hex }, children: ` · ${tier}` })
+                      : null
                   ]
                 })
               ]
