@@ -59,6 +59,18 @@ let storageRef = null
 
 const TIER_ORDER = ['Copper', 'Silver', 'Gold', 'Diamond', 'Olympian']
 const FILTERS = ['badges', 'goals', 'records', 'rewards', 'quests', 'custom', 'history']
+// Per-tab accent colors, matching the Command Center colored-tab language:
+// each top-level tab carries its own hue, and the active tab becomes a
+// solid gradient pill in that hue with white text and a soft glow.
+const FILTER_TAB_META = {
+  badges: { icon: 'milestone', color: '#7b5fd9' },
+  goals: { icon: 'target', color: '#2f9e63' },
+  records: { icon: 'history', color: '#2f7fd4' },
+  rewards: { icon: 'gift', color: '#b7791f' },
+  quests: { icon: 'sparkle', color: '#d4578f' },
+  custom: { icon: 'settings', color: '#0f9a9a' },
+  history: { icon: 'clock', color: '#8a8f98' }
+}
 // Badge state sub-filter, shown only inside the Badges tab.
 const STATE_FILTERS = ['all', 'unlocked', 'discovered', 'secret']
 const UNLOCK_POLL_MS = 15_000
@@ -1811,26 +1823,25 @@ function ScoreHeader({ data, onRescan, rescinding, onOpenSettings }) {
         className: 'flex items-center gap-4 rounded-xl border border-(--ui-stroke-secondary) px-4 py-3',
         style: { backgroundColor: 'var(--ui-bg-chrome)' },
         children: [
-          // Level medallion: pastel accent ring with the current tier.
+          // Level medallion: solid accent gradient, clean circle with the
+          // level number. The tier name lives in the header title next to it.
           jsxs('div', {
             className: 'flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-full',
             style: {
-              border: '2px solid var(--ui-accent)',
-              backgroundColor: 'color-mix(in srgb, var(--ui-accent) 12%, transparent)'
+              background: 'linear-gradient(135deg, var(--ui-accent) 0%, color-mix(in srgb, var(--ui-accent) 65%, white) 100%)',
+              boxShadow: '0 4px 14px color-mix(in srgb, var(--ui-accent) 35%, transparent)'
             },
             children: [
               jsx('span', {
-                className: 'text-base font-bold leading-none tabular-nums',
-                style: { color: 'var(--ui-accent)' },
-                children: level.level ? `Lv ${level.level}` : String(unlocked_count)
+                className: 'text-[0.5625rem] font-semibold uppercase leading-none tracking-wide',
+                style: { color: 'rgba(255,255,255,0.85)' },
+                children: 'Lv'
               }),
-              level.level
-                ? jsx('span', {
-                    className: 'mt-0.5 max-w-[52px] truncate text-[0.5625rem] font-semibold uppercase tracking-wide',
-                    style: { color: 'var(--ui-accent)' },
-                    children: level.name
-                  })
-                : null
+              jsx('span', {
+                className: 'mt-0.5 text-lg font-bold leading-none tabular-nums',
+                style: { color: '#ffffff' },
+                children: String(level.level ?? unlocked_count)
+              })
             ]
           }),
           // Center block: level name, XP bar, meta line.
@@ -2936,22 +2947,34 @@ function AchievementsPage() {
         children: [
           jsxs('div', {
             className: 'flex items-center gap-1',
-            children: FILTERS.map(f =>
-              jsx('button', {
+            children: FILTERS.map(f => {
+              const meta = FILTER_TAB_META[f] || {}
+              const active = filter === f
+              return jsxs('button', {
                 key: f,
                 className: cn(
-                  'rounded-md px-2.5 py-1 text-xs capitalize transition-colors',
-                  filter === f ? 'font-medium text-(--ui-accent)' : 'text-(--ui-text-secondary) hover:text-(--ui-text-primary)'
+                  'flex items-center gap-1 rounded-md px-2.5 py-1 text-xs capitalize transition-all',
+                  active
+                    ? 'font-medium text-white shadow-md'
+                    : 'text-(--ui-text-secondary) hover:bg-(--ui-bg-quaternary) hover:text-(--ui-text-primary)'
                 ),
-                style: filter === f ? { backgroundColor: 'color-mix(in srgb, var(--ui-accent) 12%, transparent)' } : undefined,
+                style: active && meta.color
+                  ? {
+                      background: `linear-gradient(135deg, ${meta.color} 0%, ${meta.color}cc 100%)`,
+                      boxShadow: `0 4px 14px ${meta.color}44`
+                    }
+                  : undefined,
                 type: 'button',
                 onClick: () => {
                   setHoverItem(null)
                   setFilter(f)
                 },
-                children: f
+                children: [
+                  meta.icon ? jsx(Codicon, { name: meta.icon, size: '0.75rem' }) : null,
+                  f
+                ]
               })
-            )
+            })
           }),
           isBadges
             ? jsxs('div', {
