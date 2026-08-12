@@ -2439,9 +2439,10 @@ function CategoryChips({ categories, active, onSelect }) {
             : 'border-(--ui-stroke-secondary) hover:border-(--ui-stroke-strong)'
         ),
         style: {
+          borderLeft: `3px solid ${isActive ? 'var(--ui-accent)' : tint}`,
           backgroundColor: isActive
             ? 'color-mix(in srgb, var(--ui-accent) 8%, transparent)'
-            : 'var(--ui-bg-chrome)'
+            : `color-mix(in srgb, ${tint} 7%, transparent)`
         },
         children: [
           jsx('span', { className: 'h-2.5 w-2.5 shrink-0 rounded-full', style: { backgroundColor: tint } }),
@@ -2940,10 +2941,9 @@ function AchievementsPage() {
                 key: f,
                 className: cn(
                   'rounded-md px-2.5 py-1 text-xs capitalize transition-colors',
-                  filter === f
-                    ? 'bg-(--ui-bg-quaternary) text-(--ui-text-primary)'
-                    : 'text-(--ui-text-secondary) hover:text-(--ui-text-primary)'
+                  filter === f ? 'font-medium text-(--ui-accent)' : 'text-(--ui-text-secondary) hover:text-(--ui-text-primary)'
                 ),
+                style: filter === f ? { backgroundColor: 'color-mix(in srgb, var(--ui-accent) 12%, transparent)' } : undefined,
                 type: 'button',
                 onClick: () => {
                   setHoverItem(null)
@@ -2971,10 +2971,9 @@ function AchievementsPage() {
                     key: f,
                     className: cn(
                       'rounded-md px-2 py-1 text-xs capitalize transition-colors',
-                      stateFilter === f
-                        ? 'bg-(--ui-bg-quaternary) text-(--ui-text-primary)'
-                        : 'text-(--ui-text-secondary) hover:text-(--ui-text-primary)'
+                      stateFilter === f ? 'font-medium text-(--ui-accent)' : 'text-(--ui-text-secondary) hover:text-(--ui-text-primary)'
                     ),
+                    style: stateFilter === f ? { backgroundColor: 'color-mix(in srgb, var(--ui-accent) 12%, transparent)' } : undefined,
                     type: 'button',
                     onClick: () => {
                       setHoverItem(null)
@@ -3008,10 +3007,9 @@ function AchievementsPage() {
                         key: k,
                         className: cn(
                           'rounded-md px-2 py-1 text-xs transition-colors',
-                          sort === k
-                            ? 'bg-(--ui-bg-quaternary) text-(--ui-text-primary)'
-                            : 'text-(--ui-text-secondary) hover:text-(--ui-text-primary)'
+                          sort === k ? 'font-medium text-(--ui-accent)' : 'text-(--ui-text-secondary) hover:text-(--ui-text-primary)'
                         ),
+                        style: sort === k ? { backgroundColor: 'color-mix(in srgb, var(--ui-accent) 12%, transparent)' } : undefined,
                         type: 'button',
                         onClick: () => setSort(k),
                         children: label
