@@ -1868,16 +1868,18 @@ function ScoreHeader({ data, onRescan, rescinding, onOpenSettings }) {
     className: 'px-6 pb-2 pt-4',
     children: [
       jsxs('div', {
-        className: 'flex items-center gap-4 rounded-xl border border-(--ui-stroke-secondary) px-4 py-3',
-        style: { backgroundColor: 'var(--ui-bg-chrome)' },
+        className: 'flex w-full items-center gap-4 rounded-xl border border-(--ui-stroke-secondary) px-4 py-3',
+        style: { maxWidth: 840, backgroundColor: 'var(--ui-bg-chrome)' },
         children: [
-          // Level medallion: solid accent gradient, clean circle with the
-          // level number. The tier name lives in the header title next to it.
+          // Level medallion: fixed-size circle (inline sizing so Tailwind
+          // purge can't strip it), solid accent gradient, white level number.
           jsxs('div', {
-            className: 'flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-full',
+            className: 'flex shrink-0 flex-col items-center justify-center',
             style: {
-              background: 'linear-gradient(135deg, var(--ui-accent) 0%, color-mix(in srgb, var(--ui-accent) 65%, white) 100%)',
-              boxShadow: '0 4px 14px color-mix(in srgb, var(--ui-accent) 35%, transparent)'
+              width: 56,
+              height: 56,
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, var(--ui-accent) 0%, color-mix(in srgb, var(--ui-accent) 65%, white) 100%)'
             },
             children: [
               jsx('span', {
