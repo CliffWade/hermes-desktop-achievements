@@ -963,58 +963,128 @@ function HistoryTab() {
   if (items.length === 0) {
     return jsx(EmptyState, {
       title: 'Nothing unlocked yet',
-      description: 'Your unlock timeline will appear here.'
+      description: 'Your unlock history will appear here as you earn badges.'
     })
   }
 
-  return jsx('div', {
-    className: 'flex-1 overflow-y-auto p-6',
-    children: jsx('ol', {
-      className: 'relative space-y-4 border-l border-(--ui-stroke-secondary) pl-5',
-      children: items.map(a =>
-        jsxs('li', {
-          key: a.id,
-          className: 'relative',
-          children: [
-            jsx('span', {
-              style: { left: -26 },
-              className:
-                'absolute top-1 h-2.5 w-2.5 rounded-full bg-(--ui-accent) ring-4 ring-(--ui-bg-primary)'
-            }),
-            jsxs('div', {
-              className: 'flex flex-wrap items-center gap-2',
-              children: [
-                jsx('span', { className: 'text-sm font-medium', children: a.name }),
-                a.tier
-                  ? jsx(Badge, {
-                      variant: 'outline',
-                      className: cn('text-[0.6875rem]', tierBadgeClass(a.tier)),
-                      children: a.tier
-                    })
-                  : null,
-                jsx('span', {
-                  className: 'text-[0.6875rem] text-(--ui-text-tertiary)',
-                  children: a.unlocked_at ? relativeTime(a.unlocked_at * 1000) : ''
-                }),
-                jsx('button', {
-                  type: 'button',
-                  onClick: () => celebrate({ name: a.name, tier: a.tier }, {}),
-                  className:
-                    'text-[0.6875rem] text-(--ui-text-tertiary) underline decoration-dotted underline-offset-2 hover:text-(--ui-text-primary)',
-                  children: 'replay'
-                })
-              ]
-            }),
-            a.evidence && a.evidence.title
-              ? jsx('div', {
-                  className: 'mt-0.5 text-[0.6875rem] text-(--ui-text-quaternary)',
-                  children: 'evidence: ' + a.evidence.title
-                })
-              : null
-          ]
-        })
-      )
+  // Group unlocks by relative day so a long history scans quickly.
+  const now = Date.now()
+  const groups = { Today: [], Yesterday: [], Earlier: [] }
+  for (const a of items) {
+    const age = a.unlocked_at ? now - a.unlocked_at * 1000 : Infinity
+    if (age < 24 * 3600 * 1000) groups.Today.push(a)
+    else if (age < 48 * 3600 * 1000) groups.Yesterday.push(a)
+    else groups.Earlier.push(a)
+  }
+  const groupEntries = Object.entries(groups).filter(([, list]) => list.length > 0)
+
+  const tierChip = t => {
+    const c = tierColor(t)
+    if (!c) return null
+    return jsx('span', {
+      className: 'rounded-full px-1.5 py-0.5 text-[0.625rem] font-medium tabular-nums',
+      style: { backgroundColor: `color-mix(in srgb, ${c} 12%, transparent)`, color: c },
+      children: t
     })
+  }
+
+  return jsxs('div', {
+    className: 'flex-1 overflow-y-auto p-6',
+    children: [
+      jsxs('div', {
+        className: 'overflow-hidden rounded-xl border border-(--ui-stroke-secondary)',
+        style: { backgroundColor: 'var(--ui-bg-chrome)' },
+        children: [
+          jsxs('div', {
+            className: 'flex items-center justify-between gap-2 border-b border-(--ui-stroke-secondary) px-4 py-2.5',
+            children: [
+              jsxs('div', {
+                className: 'flex items-center gap-1.5',
+                children: [
+                  jsx(Codicon, { name: 'history', size: '0.85rem', style: { color: 'var(--ui-accent)' } }),
+                  jsx('span', { className: 'text-xs font-semibold', children: 'Unlock history' })
+                ]
+              }),
+              jsx('span', {
+                className: 'text-[0.6875rem] tabular-nums',
+                style: { color: 'var(--ui-text-secondary)' },
+                children: `${items.length} recent`
+              })
+            ]
+          }),
+          jsx('div', {
+            children: groupEntries.map(([label, list], gi) =>
+              jsxs('div', {
+                key: label,
+                children: [
+                  jsx('div', {
+                    className: 'px-4 pb-1 pt-2.5 text-[0.625rem] font-semibold uppercase tracking-wide',
+                    style: { color: 'var(--ui-text-secondary)' },
+                    children: label
+                  }),
+                  ...list.map((a, i) => {
+                    const isLast = gi === groupEntries.length - 1 && i === list.length - 1
+                    return jsxs('div', {
+                      key: a.id,
+                      className: cn(
+                        'flex items-center gap-3 px-4 py-2 transition-colors hover:bg-(--ui-bg-quaternary)',
+                        !isLast && 'border-b border-(--ui-stroke-secondary)'
+                      ),
+                      children: [
+                        jsx('span', {
+                          className: 'h-2.5 w-2.5 shrink-0 rounded-full',
+                          style: { backgroundColor: tierColor(a.tier) || 'var(--ui-text-tertiary)' }
+                        }),
+                        jsxs('div', {
+                          className: 'min-w-0 flex-1',
+                          children: [
+                            jsxs('div', {
+                              className: 'flex flex-wrap items-center gap-2',
+                              children: [
+                                jsx('span', { className: 'truncate text-sm font-medium', children: a.name }),
+                                a.tier ? tierChip(a.tier) : null
+                              ]
+                            }),
+                            a.evidence && a.evidence.title
+                              ? jsx('div', {
+                                  className: 'mt-0.5 truncate text-[0.625rem]',
+                                  style: { color: 'var(--ui-text-secondary)' },
+                                  children: a.evidence.title
+                                })
+                              : null
+                          ]
+                        }),
+                        jsxs('div', {
+                          className: 'flex shrink-0 items-center gap-2',
+                          children: [
+                            jsx('span', {
+                              className: 'whitespace-nowrap text-[0.6875rem] tabular-nums',
+                              style: { color: 'var(--ui-text-secondary)' },
+                              children: a.unlocked_at ? relativeTime(a.unlocked_at * 1000) : ''
+                            }),
+                            jsx('button', {
+                              type: 'button',
+                              onClick: () => celebrate({ name: a.name, tier: a.tier }, {}),
+                              className:
+                                'inline-flex items-center gap-0.5 rounded-md border border-(--ui-stroke-secondary) px-1.5 py-0.5 text-[0.625rem] transition-colors hover:text-(--ui-text-primary)',
+                              style: { color: 'var(--ui-text-secondary)' },
+                              children: jsxs('span', {
+                                className: 'inline-flex items-center gap-0.5',
+                                children: [jsx(Codicon, { name: 'play', size: '0.625rem' }), 'Replay']
+                              })
+                            })
+                          ]
+                        })
+                      ]
+                    })
+                  })
+                ]
+              })
+            )
+          })
+        ]
+      })
+    ]
   })
 }
 
