@@ -2169,8 +2169,10 @@ function AchievementPreviewPanel({ card }) {
   const pct = item.progress_pct ?? 0
 
   return jsxs('div', {
-    className: 'pointer-events-none fixed right-6 top-24 z-30 w-72 rounded-xl border border-(--ui-stroke-secondary) bg-(--ui-bg-elevated) p-3 shadow-2xl',
-    style: { borderLeft: `3px solid ${categoryColor(item.category)}` },
+    className: 'pointer-events-none fixed z-30 w-72 rounded-xl border border-(--ui-stroke-secondary) bg-(--ui-bg-elevated) p-3 shadow-2xl',
+    // Inline right/top: the app's Tailwind build strips right-6/top-24 (only
+    // core files feed the purge), so utility classes for these land nowhere.
+    style: { right: 24, top: 96, borderLeft: `3px solid ${categoryColor(item.category)}` },
     children: [
       jsxs('div', {
         className: 'flex items-center justify-between gap-2',
