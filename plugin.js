@@ -977,6 +977,7 @@ function HistoryTab() {
     else groups.Earlier.push(a)
   }
   const groupEntries = Object.entries(groups).filter(([, list]) => list.length > 0)
+  const [gridRef, cols] = useCardCols()
 
   const tierChip = t => {
     const c = tierColor(t)
@@ -989,102 +990,79 @@ function HistoryTab() {
   }
 
   return jsxs('div', {
+    ref: gridRef,
     className: 'flex-1 overflow-y-auto p-6',
-    children: [
+    children: groupEntries.map(([label, list]) =>
       jsxs('div', {
-        className: 'overflow-hidden rounded-xl border border-(--ui-stroke-secondary)',
-        style: { backgroundColor: 'var(--ui-bg-chrome)' },
+        key: label,
+        className: 'mb-3',
         children: [
-          jsxs('div', {
-            className: 'flex items-center justify-between gap-2 border-b border-(--ui-stroke-secondary) px-4 py-2.5',
+          jsx('div', {
+            className: 'mb-1.5 flex items-center gap-2 px-1 text-[0.625rem] font-semibold uppercase tracking-wide',
+            style: { color: 'var(--ui-text-secondary)' },
             children: [
-              jsxs('div', {
-                className: 'flex items-center gap-1.5',
-                children: [
-                  jsx(Codicon, { name: 'history', size: '0.85rem', style: { color: 'var(--ui-accent)' } }),
-                  jsx('span', { className: 'text-xs font-semibold', children: 'Unlock history' })
-                ]
-              }),
-              jsx('span', {
-                className: 'text-[0.6875rem] tabular-nums',
-                style: { color: 'var(--ui-text-secondary)' },
-                children: `${items.length} recent`
-              })
+              jsx('span', { className: 'h-1.5 w-1.5 rounded-full', style: { backgroundColor: 'var(--ui-accent)' } }),
+              label
             ]
           }),
-          jsx('div', {
-            children: groupEntries.map(([label, list], gi) =>
-              jsxs('div', {
-                key: label,
-                children: [
-                  jsx('div', {
-                    className: 'px-4 pb-1 pt-2.5 text-[0.625rem] font-semibold uppercase tracking-wide',
-                    style: { color: 'var(--ui-text-secondary)' },
-                    children: label
-                  }),
-                  ...list.map((a, i) => {
-                    const isLast = gi === groupEntries.length - 1 && i === list.length - 1
-                    return jsxs('div', {
-                      key: a.id,
-                      className: cn(
-                        'flex items-center gap-3 px-4 py-2 transition-colors hover:bg-(--ui-bg-quaternary)',
-                        !isLast && 'border-b border-(--ui-stroke-secondary)'
-                      ),
+          jsxs('div', {
+            className: 'flex flex-wrap gap-2',
+            style: { display: 'flex', flexWrap: 'wrap' },
+            children: list.map(a =>
+              jsx('div', {
+                key: a.id,
+                className: 'relative',
+                style: { width: cardWidth(cols) },
+                children: jsxs('div', {
+                  className: 'flex flex-col rounded-lg border border-(--ui-stroke-secondary) p-2.5',
+                  style: {
+                    borderLeft: `3px solid ${categoryColor(a.category)}`,
+                    backgroundColor: categoryBg(a.category)
+                  },
+                  children: [
+                    jsxs('div', {
+                      className: 'flex items-start justify-between gap-1.5',
                       children: [
-                        jsx('span', {
-                          className: 'h-2.5 w-2.5 shrink-0 rounded-full',
-                          style: { backgroundColor: tierColor(a.tier) || 'var(--ui-text-tertiary)' }
-                        }),
-                        jsxs('div', {
-                          className: 'min-w-0 flex-1',
-                          children: [
-                            jsxs('div', {
-                              className: 'flex flex-wrap items-center gap-2',
-                              children: [
-                                jsx('span', { className: 'truncate text-sm font-medium', children: a.name }),
-                                a.tier ? tierChip(a.tier) : null
-                              ]
-                            }),
-                            a.evidence && a.evidence.title
-                              ? jsx('div', {
-                                  className: 'mt-0.5 truncate text-[0.625rem]',
-                                  style: { color: 'var(--ui-text-secondary)' },
-                                  children: a.evidence.title
-                                })
-                              : null
-                          ]
-                        }),
-                        jsxs('div', {
-                          className: 'flex shrink-0 items-center gap-2',
-                          children: [
-                            jsx('span', {
-                              className: 'whitespace-nowrap text-[0.6875rem] tabular-nums',
-                              style: { color: 'var(--ui-text-secondary)' },
-                              children: a.unlocked_at ? relativeTime(a.unlocked_at * 1000) : ''
-                            }),
-                            jsx('button', {
-                              type: 'button',
-                              onClick: () => celebrate({ name: a.name, tier: a.tier }, {}),
-                              className:
-                                'inline-flex items-center gap-0.5 rounded-md border border-(--ui-stroke-secondary) px-1.5 py-0.5 text-[0.625rem] transition-colors hover:text-(--ui-text-primary)',
-                              style: { color: 'var(--ui-text-secondary)' },
-                              children: jsxs('span', {
-                                className: 'inline-flex items-center gap-0.5',
-                                children: [jsx(Codicon, { name: 'play', size: '0.625rem' }), 'Replay']
-                              })
-                            })
-                          ]
+                        jsx('span', { className: 'min-w-0 truncate text-[0.8125rem] font-medium', children: a.name }),
+                        jsx('button', {
+                          type: 'button',
+                          onClick: () => celebrate({ name: a.name, tier: a.tier }, {}),
+                          className:
+                            'inline-flex shrink-0 items-center gap-0.5 rounded-md border border-(--ui-stroke-secondary) px-1 py-0.5 text-[0.625rem] transition-colors hover:text-(--ui-text-primary)',
+                          style: { color: 'var(--ui-text-secondary)' },
+                          children: jsxs('span', {
+                            className: 'inline-flex items-center gap-0.5',
+                            children: [jsx(Codicon, { name: 'play', size: '0.625rem' }), 'Replay']
+                          })
                         })
                       ]
-                    })
-                  })
-                ]
+                    }),
+                    jsxs('div', {
+                      className: 'mt-1 flex flex-wrap items-center gap-1.5',
+                      children: [
+                        a.tier ? tierChip(a.tier) : null,
+                        jsx('span', {
+                          className: 'text-[0.625rem] tabular-nums',
+                          style: { color: 'var(--ui-text-secondary)' },
+                          children: a.unlocked_at ? relativeTime(a.unlocked_at * 1000) : ''
+                        })
+                      ]
+                    }),
+                    a.evidence && a.evidence.title
+                      ? jsx('div', {
+                          className: 'mt-1 truncate text-[0.625rem]',
+                          style: { color: 'var(--ui-text-secondary)' },
+                          children: a.evidence.title
+                        })
+                      : null
+                  ]
+                })
               })
             )
           })
         ]
       })
-    ]
+    )
   })
 }
 
