@@ -225,6 +225,69 @@ function categoryIcon(cat) {
   return categoryColor(cat)
 }
 
+// Goal card identity: metric-suffixed hues so the same metric stays
+// color-consistent between the monthly and weekly rows, and the Goals tab
+// reads like the badge grid instead of a wall of grey boxes. Each card gets
+// a 3px left accent, a soft tinted fill, a colored icon tile, and a gradient
+// progress bar in the same language as the rest of the page.
+const GOAL_COLORS = {
+  sessions: 'hsl(150 55% 45%)',       // green
+  tool_calls: 'hsl(205 85% 55%)',     // sky
+  active_days: 'hsl(45 90% 50%)',     // gold
+  unlocks: 'hsl(250 55% 58%)',        // violet
+  tier_ups: 'hsl(330 70% 55%)',       // magenta
+  streak: 'hsl(15 75% 55%)',          // ember
+  // Custom-goal metric keys (exact match wins, else the suffix).
+  session_count: 'hsl(150 55% 45%)',
+  total_tool_calls: 'hsl(205 85% 55%)',
+  total_terminal_calls: 'hsl(190 70% 48%)',
+  max_streak_days: 'hsl(15 75% 55%)',
+  current_streak_days: 'hsl(15 75% 55%)',
+  distinct_tool_count: 'hsl(275 60% 55%)',
+  distinct_model_count: 'hsl(330 70% 55%)',
+  total_errors: 'hsl(0 70% 60%)',
+  total_patch_calls: 'hsl(45 90% 50%)'
+}
+const DEFAULT_GOAL_COLOR = 'hsl(220 15% 55%)'
+const GOAL_ICONS = {
+  sessions: 'calendar',
+  tool_calls: 'tools',
+  active_days: 'flame',
+  unlocks: 'star',
+  tier_ups: 'milestone',
+  streak: 'pulse'
+}
+const DEFAULT_GOAL_ICON = 'target'
+
+function goalColor(idOrMetric) {
+  const key = String(idOrMetric || '')
+  return GOAL_COLORS[key] || GOAL_COLORS[key.split('_').pop()] || DEFAULT_GOAL_COLOR
+}
+
+function goalBg(idOrMetric) {
+  return goalColor(idOrMetric).replace(')', ' / 0.09)')
+}
+
+function goalIcon(id) {
+  const key = String(id || '').split('_').pop()
+  return GOAL_ICONS[key] || DEFAULT_GOAL_ICON
+}
+
+// Shared gradient progress bar: colored fill that lifts to a lighter tint,
+// matching the XP bar in the hero header. Done state fills full-width green.
+function goalBarStyle(done, color, pct) {
+  if (done) {
+    return {
+      width: '100%',
+      background: 'linear-gradient(90deg, var(--ui-ok), color-mix(in srgb, var(--ui-ok) 55%, white))'
+    }
+  }
+  return {
+    width: `${Math.min(100, pct || 0)}%`,
+    background: `linear-gradient(90deg, ${color}, color-mix(in srgb, ${color} 55%, white))`
+  }
+}
+
 // ── Celebration: chime + haptic + confetti (settings-gated) ────────────────
 
 let _audioCtx = null
@@ -2663,52 +2726,99 @@ function CategoryChips({ categories, active, onSelect }) {
 function ChallengesStrip({ challenges, weekly }) {
   const [ref, cols] = useCardCols()
   if ((!challenges || challenges.length === 0) && (!weekly || weekly.length === 0)) return null
-  const renderRow = (title, list) =>
+
+  const renderRow = (title, list, color) =>
     jsxs('div', {
-      className: 'mb-2 last:mb-0',
+      className: 'mb-3 last:mb-0',
       children: [
-        jsx('div', {
-          className: 'mb-1.5 text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary)',
-          children: title
+        jsxs('div', {
+          className: 'mb-2 flex items-center gap-1.5',
+          children: [
+            // Section color bar + uppercase title — same language as the
+            // Section component, carrying the Goals hue for the row.
+            jsx('span', {
+              style: { background: color, opacity: 0.85 },
+              className: 'h-3.5 w-1 shrink-0 rounded-full'
+            }),
+            jsx('span', {
+              className: 'text-[0.6875rem] font-semibold uppercase tracking-wide',
+              style: { color },
+              children: title
+            })
+          ]
         }),
         jsxs('div', {
           className: 'flex flex-wrap gap-2',
           style: { display: 'flex', flexWrap: 'wrap' },
-          children: list.map(c =>
-            jsxs('div', {
+          children: list.map(c => {
+            // Metric identity: hue + icon from the metric suffix, so
+            // "Sessions" is green in both the monthly and weekly rows.
+            const color = goalColor(c.id)
+            const icon = goalIcon(c.id)
+            const pct = Math.min(100, c.pct || 0)
+            return jsxs('div', {
               key: c.id,
-              className: cn(
-                'flex flex-col rounded-lg border p-2',
-                c.done
-                  ? 'border-(--ui-ok)/50 bg-(--ui-ok)/10'
-                  : 'border-(--ui-stroke-secondary) bg-(--ui-bg-secondary)'
-              ),
-              style: { width: cardWidth(Math.min(cols, 5)) },
+              className: 'flex flex-col rounded-lg border border-(--ui-stroke-secondary) px-3 py-2.5',
+              style: {
+                width: cardWidth(Math.min(cols, 4)),
+                borderLeft: `3px solid ${color}`,
+                backgroundColor: goalBg(c.id)
+              },
               children: [
                 jsxs('div', {
-                  className: 'flex items-center justify-between gap-1',
+                  className: 'flex items-center gap-2',
                   children: [
-                    jsx('span', { className: 'truncate text-[0.75rem] font-medium leading-tight', children: c.name }),
+                    jsx('div', {
+                      className: 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                      style: {
+                        backgroundColor: `color-mix(in srgb, ${color} 18%, transparent)`,
+                        color
+                      },
+                      children: jsx(Codicon, { name: icon, size: '0.95rem' })
+                    }),
+                    jsx('span', {
+                      className: 'truncate text-[0.8125rem] font-semibold leading-tight',
+                      children: c.name
+                    })
+                  ]
+                }),
+                jsxs('div', {
+                  className: 'mt-1.5 flex items-center justify-between gap-2',
+                  children: [
+                    jsx('span', {
+                      className: 'truncate text-xs leading-snug',
+                      style: { color: 'var(--ui-text-secondary)' },
+                      children: c.description || ''
+                    }),
                     c.done
-                      ? jsx('span', { className: 'shrink-0 text-[0.5625rem] font-medium text-(--ui-ok)', children: 'Done' })
+                      ? jsx('span', {
+                          className: 'shrink-0 rounded-full px-1.5 py-0.5 text-[0.625rem] font-semibold',
+                          style: {
+                            color: 'var(--ui-ok)',
+                            backgroundColor: 'color-mix(in srgb, var(--ui-ok) 12%, transparent)'
+                          },
+                          children: 'Done'
+                        })
                       : jsx('span', {
-                          className: 'shrink-0 text-[0.5625rem] tabular-nums text-(--ui-text-quaternary)',
-                          children: `${c.value}/${c.target}`
+                          className: 'shrink-0 text-[0.6875rem] font-semibold tabular-nums',
+                          style: { color },
+                          children: `${c.value.toLocaleString()}/${c.target.toLocaleString()}`
                         })
                   ]
                 }),
                 jsxs('div', {
-                  className: 'mt-1.5 h-1 w-full overflow-hidden rounded-full bg-(--ui-bg-quaternary)',
+                  className: 'mt-2 h-1.5 w-full overflow-hidden rounded-full',
+                  style: { backgroundColor: 'color-mix(in srgb, var(--ui-text-tertiary) 20%, transparent)' },
                   children: [
                     jsx('div', {
-                      className: cn('h-full rounded-full', c.done ? 'bg-(--ui-ok)' : 'bg-(--ui-accent)'),
-                      style: { width: `${Math.min(100, c.pct || 0)}%` }
+                      className: 'h-full rounded-full transition-all',
+                      style: goalBarStyle(c.done, color, pct)
                     })
                   ]
                 })
               ]
             })
-          )
+          })
         })
       ]
     })
@@ -2717,8 +2827,8 @@ function ChallengesStrip({ challenges, weekly }) {
     ref,
     className: 'px-6 pb-2.5',
     children: [
-      challenges && challenges.length > 0 ? renderRow('This month', challenges) : null,
-      weekly && weekly.length > 0 ? renderRow('This week', weekly) : null
+      challenges && challenges.length > 0 ? renderRow('This month', challenges, 'hsl(150 55% 45%)') : null,
+      weekly && weekly.length > 0 ? renderRow('This week', weekly, 'hsl(190 70% 48%)') : null
     ]
   })
 }
@@ -2919,61 +3029,84 @@ function CustomGoalsSection({ data }) {
       }),
       goals.length === 0
         ? jsx('p', {
-            className: 'text-[0.6875rem] text-(--ui-text-quaternary)',
+            className: 'text-xs text-(--ui-text-secondary)',
             children: 'No custom goals yet — set one above and watch it fill.'
           })
         : jsxs('div', {
             className: 'flex flex-wrap gap-2',
             style: { display: 'flex', flexWrap: 'wrap' },
-            children: goals.map(g =>
-              jsxs('div', {
+            children: goals.map(g => {
+              const color = goalColor(g.metric || g.id)
+              const icon = goalIcon(g.metric || g.id)
+              const pct = Math.min(100, g.pct || 0)
+              return jsxs('div', {
                 key: g.id,
-                className: cn(
-                  'flex flex-col rounded-lg border p-2',
-                  g.done ? 'border-(--ui-ok)/50 bg-(--ui-ok)/10' : 'border-(--ui-stroke-secondary) bg-(--ui-bg-secondary)'
-                ),
-                style: { width: cardWidth(Math.min(cols, 5)) },
+                className: 'flex flex-col rounded-lg border border-(--ui-stroke-secondary) px-3 py-2.5',
+                style: {
+                  width: cardWidth(Math.min(cols, 4)),
+                  borderLeft: `3px solid ${color}`,
+                  backgroundColor: goalBg(g.metric || g.id)
+                },
                 children: [
                   jsxs('div', {
-                    className: 'flex items-center justify-between gap-1',
+                    className: 'flex items-center gap-2',
                     children: [
-                      jsx('span', { className: 'truncate text-[0.75rem] font-medium leading-tight', children: g.name }),
+                      jsx('div', {
+                        className: 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                        style: {
+                          backgroundColor: `color-mix(in srgb, ${color} 18%, transparent)`,
+                          color
+                        },
+                        children: jsx(Codicon, { name: icon, size: '0.95rem' })
+                      }),
+                      jsx('span', {
+                        className: 'truncate text-[0.8125rem] font-semibold leading-tight',
+                        children: g.name
+                      })
+                    ]
+                  }),
+                  jsxs('div', {
+                    className: 'mt-1.5 flex items-center justify-between gap-2',
+                    children: [
+                      jsx('span', {
+                        className: 'truncate text-xs leading-snug',
+                        style: { color: 'var(--ui-text-secondary)' },
+                        children: g.metric_label || ''
+                      }),
                       jsxs('div', {
-                        className: 'flex shrink-0 items-center gap-1',
+                        className: 'flex shrink-0 items-center gap-1.5',
                         children: [
                           jsx('span', {
-                            className: 'text-[0.5625rem] tabular-nums text-(--ui-text-quaternary)',
-                            children: `${g.value}/${g.target}`
+                            className: 'shrink-0 text-[0.6875rem] font-semibold tabular-nums',
+                            style: { color: g.done ? 'var(--ui-ok)' : color },
+                            children: `${g.value.toLocaleString()}/${g.target.toLocaleString()}`
                           }),
                           jsx('button', {
                             type: 'button',
                             onClick: () => remove(g.id),
                             disabled: removing === g.id,
                             className:
-                              'rounded border border-(--ui-stroke-secondary) px-1 text-[0.5625rem] transition-colors',
+                              'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-(--ui-stroke-secondary) text-[0.625rem] transition-colors hover:border-(--ui-stroke-strong) hover:text-(--ui-text-primary)',
                             style: { color: 'var(--ui-text-secondary)' },
-                            children: '✕'
+                            children: removing === g.id ? '…' : '✕'
                           })
                         ]
                       })
                     ]
                   }),
-                  jsx('span', {
-                    className: 'mt-0.5 truncate text-[0.5625rem] text-(--ui-text-quaternary)',
-                    children: g.metric_label
-                  }),
                   jsxs('div', {
-                    className: 'mt-1 h-1 w-full overflow-hidden rounded-full bg-(--ui-bg-quaternary)',
+                    className: 'mt-2 h-1.5 w-full overflow-hidden rounded-full',
+                    style: { backgroundColor: 'color-mix(in srgb, var(--ui-text-tertiary) 20%, transparent)' },
                     children: [
                       jsx('div', {
-                        className: cn('h-full rounded-full', g.done ? 'bg-(--ui-ok)' : 'bg-(--ui-accent)'),
-                        style: { width: `${Math.min(100, g.pct || 0)}%` }
+                        className: 'h-full rounded-full transition-all',
+                        style: goalBarStyle(g.done, color, pct)
                       })
                     ]
                   })
                 ]
               })
-            )
+            })
           })
     ]
   })
