@@ -1838,12 +1838,19 @@ function RewardsStrip({ rewards }) {
     }
   }
 
-  const rewardIcon = id => ({
-    theme_diamond: '💎',
-    theme_streak30: '🔥',
-    theme_olympian: '🏆',
-    theme_sets: '🏅'
-  }[id] || '🎁')
+  // Theme identity: each reward gets its own hue so the strip reads like
+  // the goals and records cards. Streak reuses the ember hue from the goal
+  // metric map; Olympian is the Rewards-section gold; the others get
+  // theme-appropriate colors. Each theme also carries a deepened button
+  // fill + text color so the Install button clears the 4.5:1 contrast
+  // floor (white on raw gold fails; dark text on gold passes at 12:1).
+  const REWARD_META = {
+    theme_diamond: { color: 'hsl(195 75% 52%)', icon: '💎', btn: 'hsl(200 70% 38%)', btnText: '#fff' },
+    theme_streak30: { color: 'hsl(15 75% 55%)', icon: '🔥', btn: 'hsl(15 70% 42%)', btnText: '#fff' },
+    theme_olympian: { color: 'hsl(45 90% 50%)', icon: '🏆', btn: 'hsl(45 90% 50%)', btnText: 'hsl(40 60% 18%)' },
+    theme_sets: { color: 'hsl(275 60% 55%)', icon: '🏅', btn: 'hsl(275 60% 42%)', btnText: '#fff' }
+  }
+  const rewardMeta = id => REWARD_META[id] || { color: 'hsl(220 15% 55%)', icon: '🎁', btn: 'hsl(220 15% 40%)', btnText: '#fff' }
 
   return jsxs('div', {
     ref,
@@ -1854,47 +1861,70 @@ function RewardsStrip({ rewards }) {
         style: { display: 'flex', flexWrap: 'wrap' },
         children: rewards.map(r => {
           const isInstalled = !!installed[r.id]
-          const icon = rewardIcon(r.id)
+          const meta = rewardMeta(r.id)
           return jsxs('div', {
             key: r.id,
-            className: cn(
-              'flex flex-col rounded-lg border p-2 transition-colors',
-              r.unlocked
-                ? 'border-(--ui-accent)/40 bg-(--ui-bg-secondary)'
-                : 'border-(--ui-stroke-secondary) bg-(--ui-bg-tertiary)'
-            ),
+            className: 'flex flex-col rounded-lg border border-(--ui-stroke-secondary) px-3 py-2.5 transition-colors',
             // Inline width (cols per row at 8px gap) — purge-proof, same
-            // density as the achievement grid below.
-            style: { width: cardWidth(cols) },
+            // density as the achievement grid below. Locked cards keep a
+            // muted accent + dimmer fill so the locked state reads at a
+            // glance instead of as a slightly darker grey box.
+            style: {
+              width: cardWidth(Math.min(cols, 4)),
+              borderLeft: `3px solid ${r.unlocked ? meta.color : 'color-mix(in srgb, ' + meta.color + ' 40%, transparent)'}`,
+              backgroundColor: r.unlocked
+                ? meta.color.replace(')', ' / 0.09)')
+                : 'color-mix(in srgb, ' + meta.color + ' 5%, var(--ui-bg-tertiary))'
+            },
             children: [
               jsxs('div', {
-                className: 'flex items-center justify-between gap-1',
+                className: 'flex items-center justify-between gap-1.5',
                 children: [
                   jsxs('div', {
-                    className: 'flex min-w-0 items-center gap-1',
+                    className: 'flex min-w-0 items-center gap-2',
                     children: [
-                      jsx('span', { className: 'shrink-0 text-[0.75rem] leading-none', children: icon }),
-                      jsx('span', { className: 'truncate text-[0.8125rem] font-medium leading-tight', children: r.name })
+                      jsx('div', {
+                        className: 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                        style: {
+                          backgroundColor: `color-mix(in srgb, ${meta.color} ${r.unlocked ? 18 : 10}%, transparent)`,
+                          opacity: r.unlocked ? 1 : 0.7
+                        },
+                        children: jsx('span', { className: 'text-[1rem] leading-none', children: meta.icon })
+                      }),
+                      jsx('span', {
+                        className: cn(
+                          'truncate text-[0.8125rem] font-semibold leading-tight',
+                          r.unlocked ? '' : 'text-(--ui-text-secondary)'
+                        ),
+                        children: r.name
+                      })
                     ]
                   }),
                   r.unlocked
-                    ? jsx('span', { className: 'shrink-0 text-[0.5625rem] text-(--ui-accent)', children: 'Open' })
-                    : jsx('span', { className: 'shrink-0 text-[0.5625rem] text-(--ui-text-quaternary)', children: 'Locked' })
+                    ? jsx('span', {
+                        className: 'shrink-0 rounded-full px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide',
+                        style: { color: meta.color, backgroundColor: `color-mix(in srgb, ${meta.color} 14%, transparent)` }
+                      }, 'Open')
+                    : jsx('span', {
+                        className: 'shrink-0 rounded-full px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide',
+                        style: { color: 'var(--ui-text-secondary)', backgroundColor: 'color-mix(in srgb, var(--ui-text-secondary) 12%, transparent)' }
+                      }, 'Locked')
                 ]
               }),
               jsx(Tip, {
                 label: r.description,
                 children: jsx('span', {
-                  className: 'mt-1 block truncate text-[0.625rem] leading-tight',
+                  className: 'mt-1.5 line-clamp-2 text-[0.6875rem] leading-snug',
                   style: { color: 'var(--ui-text-secondary)' },
                   children: r.description
                 })
               }),
               jsxs('div', {
-                className: 'mt-1.5 flex items-center justify-between gap-2',
+                className: 'mt-2 flex items-center justify-between gap-2',
                 children: [
                   jsx('span', {
-                    className: 'truncate text-[0.625rem] tabular-nums text-(--ui-text-quaternary)',
+                    className: 'truncate text-[0.6875rem] tabular-nums',
+                    style: { color: 'var(--ui-text-secondary)' },
                     children: r.progress || 'not started'
                   }),
                   r.id === 'theme_streak30' && !r.unlocked
@@ -1906,7 +1936,8 @@ function RewardsStrip({ rewards }) {
                         const cur = m ? parseInt(m[1], 10) : 0
                         const left = Math.max(0, 30 - cur)
                         return jsx('span', {
-                          className: 'shrink-0 text-[0.625rem] font-medium text-(--ui-accent)',
+                          className: 'shrink-0 text-[0.6875rem] font-semibold',
+                          style: { color: meta.color },
                           children: left === 0 ? '🔥 today?' : `🔥 ${left}d to go`
                         })
                       })()
@@ -1914,11 +1945,17 @@ function RewardsStrip({ rewards }) {
                   r.unlocked
                     ? jsx('button', {
                         className: cn(
-                          'shrink-0 rounded border px-1 py-0.5 text-[0.5625rem] font-medium transition-colors',
+                          'shrink-0 rounded-md px-2 py-1 text-[0.6875rem] font-semibold transition-all',
                           isInstalled
-                            ? 'border-(--ui-stroke-secondary) text-(--ui-text-quaternary)'
-                            : 'border-(--ui-accent) text-(--ui-accent) hover:bg-(--ui-accent)/10'
+                            ? 'border border-(--ui-stroke-secondary) text-(--ui-text-quaternary)'
+                            : 'shadow-sm hover:brightness-110 active:brightness-95'
                         ),
+                        style: isInstalled
+                          ? undefined
+                          : {
+                              background: `linear-gradient(135deg, ${meta.btn}, color-mix(in srgb, ${meta.btn} 70%, white))`,
+                              color: meta.btnText
+                            },
                         type: 'button',
                         disabled: isInstalled || installing === r.id,
                         onClick: () => install(r),
