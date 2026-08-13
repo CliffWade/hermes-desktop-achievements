@@ -2975,43 +2975,53 @@ function QuestsTab({ data }) {
                   })
                 ]
               }),
-              jsx('ol', {
-                className: 'relative space-y-3 border-l border-(--ui-stroke-secondary) pl-5',
+              jsxs('div', {
+                className: 'flex flex-wrap gap-2',
+                style: { display: 'flex', flexWrap: 'wrap' },
                 children: recent.map(q => {
                   const hue = questHue(q.id)
-                  return jsxs('li', {
+                  return jsxs('div', {
                     key: q.id,
-                    className: 'relative',
+                    className: 'flex flex-col rounded-lg border border-(--ui-stroke-secondary) px-3 py-2.5',
+                    style: {
+                      width: cardWidth(Math.min(cols, 4)),
+                      borderLeft: `3px solid ${hue}`,
+                      backgroundColor: hue.replace(')', ' / 0.09)')
+                    },
                     children: [
-                      jsx('span', {
-                        style: { left: -26, background: hue },
-                        className: 'absolute top-1 h-2.5 w-2.5 rounded-full ring-4 ring-(--ui-bg-primary)'
-                      }),
                       jsxs('div', {
-                        className: 'flex items-center justify-between gap-2',
+                        className: 'flex items-center justify-between gap-1.5',
                         children: [
-                          jsx('span', { className: 'truncate text-sm font-semibold leading-tight', children: q.name }),
                           jsxs('div', {
-                            className: 'flex shrink-0 items-center gap-1.5',
+                            className: 'flex min-w-0 items-center gap-2',
                             children: [
-                              jsx('span', {
-                                className: 'text-[0.6875rem] tabular-nums',
-                                style: { color: 'var(--ui-text-secondary)' },
-                                children: new Date((q.completed_at || 0) * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                              jsx('div', {
+                                className: 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                                style: {
+                                  backgroundColor: `color-mix(in srgb, ${hue} 18%, transparent)`,
+                                  color: hue
+                                },
+                                children: jsx(Codicon, { name: questIcon(q.id), size: '0.95rem' })
                               }),
-                              jsx('span', {
-                                className: 'rounded-full px-1.5 py-0.5 text-[0.625rem] font-semibold tabular-nums',
-                                style: { color: hue, backgroundColor: `color-mix(in srgb, ${hue} 14%, transparent)` },
-                                children: `+${q.xp} XP`
-                              })
+                              jsx('span', { className: 'truncate text-[0.8125rem] font-semibold leading-tight', children: q.name })
                             ]
+                          }),
+                          jsx('span', {
+                            className: 'shrink-0 rounded-full px-1.5 py-0.5 text-[0.625rem] font-semibold tabular-nums',
+                            style: { color: hue, backgroundColor: `color-mix(in srgb, ${hue} 14%, transparent)` },
+                            children: `+${q.xp} XP`
                           })
                         ]
                       }),
                       jsx('div', {
-                        className: 'mt-0.5 text-xs leading-snug',
+                        className: 'mt-1.5 line-clamp-2 text-[0.6875rem] leading-snug',
                         style: { color: 'var(--ui-text-secondary)' },
                         children: q.description
+                      }),
+                      jsx('div', {
+                        className: 'mt-2 text-[0.6875rem] tabular-nums',
+                        style: { color: 'var(--ui-text-secondary)' },
+                        children: `Completed ${new Date((q.completed_at || 0) * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
                       })
                     ]
                   })
