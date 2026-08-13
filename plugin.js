@@ -2050,7 +2050,7 @@ async function resolveStoredSessionId(runtimeId) {
   return runtimeId
 }
 
-function SessionBadges() {
+function SessionBadges({ onHover, onLeave }) {
   const sessionId = useValue(host.state.activeSessionId)
   const [storedId, setStoredId] = useState(undefined)
   const resolving = storedId === undefined
@@ -2153,6 +2153,13 @@ function SessionBadges() {
                   return jsxs('div', {
                     key: b.id,
                     className: 'flex items-center gap-2.5 rounded-lg border border-(--ui-stroke-secondary) px-3 py-2.5',
+                    // Hover wiring identical to the grid: raises the shared
+                    // AchievementPreviewPanel so session badges get the same
+                    // detail popup as every other card on the page.
+                    onMouseEnter: () => onHover && onHover(b),
+                    onMouseLeave: () => onLeave && onLeave(),
+                    onFocus: () => onHover && onHover(b),
+                    onBlur: () => onLeave && onLeave(),
                     style: {
                       borderLeft: `3px solid ${categoryColor(cat)}`,
                       backgroundColor: categoryBg(cat)
@@ -3221,7 +3228,7 @@ function AchievementsPage() {
         ? jsx(CategoryChips, { categories: data.categories, active: catFilter, onSelect: selectCat })
         : null,
       isMain ? jsx(MiniStats, { data }) : null,
-      isBadges ? jsx(SessionBadges, {}) : null,
+      isBadges ? jsx(SessionBadges, { onHover: setHoverItem, onLeave: () => setHoverItem(null) }) : null,
       isBadges ? jsx(NextUpStrip, { items: nextUp, onHover: setHoverItem, onLeave: () => setHoverItem(null) }) : null,
       isBadges ? jsx(RecentAchievements, {}) : null,
       isRecords
