@@ -1,5 +1,6 @@
 /**
  * Hermes Achievements — desktop plugin (enhanced fork).
+ * @version 1.0.0
  *
  * Fork of asimons81/hermes-desktop-achievements (MIT) by Tony Simons.
  * Extensions on top of the original:

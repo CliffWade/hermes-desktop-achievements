@@ -1,5 +1,8 @@
 # Hermes Desktop Achievements
 
+[![Release](https://img.shields.io/github/v/release/CliffWade/hermes-desktop-achievements?sort=semver&style=for-the-badge&label=Version&color=7B2D8E)](https://github.com/CliffWade/hermes-desktop-achievements/releases)
+[![License](https://img.shields.io/github/license/CliffWade/hermes-desktop-achievements?style=for-the-badge&label=License)](https://github.com/CliffWade/hermes-desktop-achievements/blob/main/LICENSE)
+
 Achievements, right inside the Hermes desktop app, with unlock notifications.
 
 A full achievements page (score header, tier filters, progress bars, rescan),
@@ -84,10 +87,12 @@ and History. The tab bar stays pinned while you scroll.
   discovered / secret) plus search and sort inside the Badges tab
 - **Sticky tab bar** — navigation stays pinned to the top while you scroll
 - **Quests tab** — all available quests with requirements, XP, and completion
-  dates; a "Recently completed" timeline shows the last 5 quests finished
-- **Color-coded sections** — each content tab's sections carry a
-  category-palette accent (Activity sky, Rewards gold, Records teal, Goals
-  green, Custom goals coral)
+  dates; a "Recently completed" card row shows the last quests finished, each
+  in the same identity color as its All Quests card
+- **Color-coded sections** — every content tab's sections carry identity
+  cards: per-item hues with tinted fills, colored accent bars, icon tiles,
+  and status pills (Badges violet, Rewards gold, Records teal, Goals green,
+  Custom goals coral, Quests pink)
 - **Search and sort** — filter by name, sort by closest, tier, or name
 - **NEW freshness tag** — badges unlocked in the last 48 hours are marked NEW
 - **Statusbar chip** — live score plus the closest next-up achievement in the
