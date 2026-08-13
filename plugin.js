@@ -2054,6 +2054,11 @@ function SessionBadges({ onHover, onLeave }) {
   const sessionId = useValue(host.state.activeSessionId)
   const [storedId, setStoredId] = useState(undefined)
   const resolving = storedId === undefined
+  // Same card measurement as the rest of the page (grid, Next Up): the ref
+  // lives on the ALWAYS-mounted card frame so the observer attaches on first
+  // render — the late-mounting grid itself must NOT be the measured element
+  // (that's what previously locked the section onto window.innerWidth).
+  const [cardRef, cols] = useCardCols()
 
   useEffect(() => {
     let cancelled = false
@@ -2091,8 +2096,12 @@ function SessionBadges({ onHover, onLeave }) {
     className: 'px-6 pb-2',
     children: [
       jsxs('div', {
+        ref: cardRef,
         className: 'rounded-xl border border-(--ui-stroke-secondary) px-4 py-3',
-        style: { maxWidth: 840, backgroundColor: 'var(--ui-bg-chrome)' },
+        // Full content width (no 840 cap): the other sections span the page,
+        // so this card should too, and its badge cards then match the grid's
+        // density via the same cardWidth(cols) measurement below.
+        style: { backgroundColor: 'var(--ui-bg-chrome)' },
         children: [
           jsxs('div', {
             className: 'flex items-center justify-between gap-2',
@@ -2129,25 +2138,15 @@ function SessionBadges({ onHover, onLeave }) {
           }),
           badges.length > 0
             ? jsx('div', {
-                className: 'mt-3 grid gap-2',
-                // Deterministic responsive grid: ~3 cards across at the
-                // card's 840px cap (each ≈260px). Not useCardCols: that
-                // hook only observes a ref that exists on FIRST render, and
-                // this grid mounts after the query resolves, so it locked
-                // onto window.innerWidth (6 columns on wide monitors) and
-                // every name truncated. auto-fill keeps full names visible,
-                // collapsing gracefully on narrower windows.
-                style: {
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
-                  gap: 8
-                },
+                className: 'mt-3 flex flex-wrap gap-2',
+                style: { display: 'flex', flexWrap: 'wrap', gap: 8 },
                 children: badges.map(b => {
                   // Mini achievement card: same identity language as the grid
                   // (3px category left accent, soft tinted fill, colored
                   // milestone icon) with a proper icon tile and a tier chip
-                  // colored by the TIER hue. Names wrap up to 2 lines instead
-                  // of truncating so the haul stays readable.
+                  // colored by the TIER hue. Width comes from the SAME
+                  // cardWidth(cols) measurement as the main grid, so session
+                  // cards match the size of every other card on the page.
                   const cat = b.category || ''
                   const tierHex = tierColor(b.tier)
                   return jsxs('div', {
@@ -2161,6 +2160,7 @@ function SessionBadges({ onHover, onLeave }) {
                     onFocus: () => onHover && onHover(b),
                     onBlur: () => onLeave && onLeave(),
                     style: {
+                      width: cardWidth(cols),
                       borderLeft: `3px solid ${categoryColor(cat)}`,
                       backgroundColor: categoryBg(cat)
                     },
