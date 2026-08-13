@@ -166,6 +166,19 @@ function progressBarClass(state) {
 // so the grid adds another layer of scanning (Copper → Olympian).
 const TIER_HUES = { Copper: 28, Silver: 210, Gold: 45, Diamond: 190, Olympian: 265 }
 const TIER_HEX = { Copper: '#b07a3a', Silver: '#7a93b0', Gold: '#b8930a', Diamond: '#1f9d8f', Olympian: '#7a5fb0' }
+// Darker tier text shades: pass ~7:1 on the light pastel fills while keeping
+// the tier hue. tierBadgeClass alone maps Copper to text-quaternary (too
+// faint to read), so tier labels use these instead.
+const TIER_TEXT = {
+  Copper: '#8a5f2e',
+  Silver: '#5e7489',
+  Gold: '#8a6d00',
+  Diamond: '#0f6f63',
+  Olympian: '#5c47a8'
+}
+function tierTextColor(tier) {
+  return TIER_TEXT[tier] || 'var(--ui-text-tertiary)'
+}
 
 function tierColor(tier) {
   return TIER_HEX[tier] || null
@@ -2041,6 +2054,7 @@ function SessionBadges() {
   const sessionId = useValue(host.state.activeSessionId)
   const [storedId, setStoredId] = useState(undefined)
   const resolving = storedId === undefined
+  const [gridRef, cols] = useCardCols()
 
   useEffect(() => {
     let cancelled = false
@@ -2085,18 +2099,18 @@ function SessionBadges() {
             className: 'flex items-center justify-between gap-2',
             children: [
               jsxs('div', {
-                className: 'flex min-w-0 items-center gap-1.5',
+                className: 'flex min-w-0 items-center gap-2',
                 children: [
-                  // Section color bar + title, same language as the app's
-                  // Section component (colored vertical bar, uppercase
-                  // colored label) but carrying the Badges tab accent.
+                  // Section color bar + icon + uppercase label, the app's
+                  // Section language but carrying the Badges tab accent and
+                  // larger weight so the header doesn't get lost.
                   jsx('span', {
                     style: { background: accent, opacity: 0.85 },
-                    className: 'h-3.5 w-1 shrink-0 rounded-full'
+                    className: 'h-4 w-1 shrink-0 rounded-full'
                   }),
-                  jsx(Codicon, { name: 'zap', size: '0.85rem', style: { color: accent } }),
+                  jsx(Codicon, { name: 'zap', size: '0.95rem', style: { color: accent } }),
                   jsx('span', {
-                    className: 'text-[0.6875rem] font-medium uppercase tracking-wide',
+                    className: 'text-xs font-semibold uppercase tracking-wide',
                     style: { color: accent },
                     children: 'This session'
                   })
@@ -2104,60 +2118,82 @@ function SessionBadges() {
               }),
               badges.length > 0
                 ? jsx('span', {
-                    className: 'shrink-0 text-[0.6875rem] tabular-nums',
-                    style: { color: 'var(--ui-text-secondary)' },
+                    className: 'shrink-0 rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold tabular-nums',
+                    style: {
+                      color: accent,
+                      backgroundColor: `color-mix(in srgb, ${accent} 12%, transparent)`
+                    },
                     children: `${badges.length} badge${badges.length === 1 ? '' : 's'}`
                   })
                 : null
             ]
           }),
-          jsxs('div', {
-            className: 'mt-2.5 flex flex-wrap items-stretch gap-1.5',
-            children: badges.length > 0
-              ? badges.map(b => {
-                  // Mini badge chip with the SAME identity language as the
-                  // grid's AchievementCard: 3px category left accent, soft
-                  // tinted fill, colored milestone icon, tier chip. Compact
-                  // so a full session's haul reads at a glance; the grid
-                  // below carries the deep detail.
+          badges.length > 0
+            ? jsx('div', {
+                ref: gridRef,
+                className: 'mt-3 flex flex-wrap gap-2',
+                children: badges.map(b => {
+                  // Mini achievement card: same identity language as the grid
+                  // (3px category left accent, soft tinted fill, colored
+                  // milestone icon) but with a proper icon tile and a tier
+                  // chip colored by the TIER hue, so Gold reads gold and the
+                  // card stops being a box-in-a-box. Equal widths via the
+                  // page's cardWidth(cols) rhythm keep rows aligned.
                   const cat = b.category || ''
+                  const tierHex = tierColor(b.tier)
                   return jsxs('div', {
                     key: b.id,
-                    className:
-                      'flex min-w-0 items-center gap-1.5 rounded-md border border-(--ui-stroke-secondary) px-2 py-1',
+                    className: 'flex items-center gap-2 rounded-lg border border-(--ui-stroke-secondary) px-2.5 py-2',
                     style: {
+                      width: cardWidth(cols),
                       borderLeft: `3px solid ${categoryColor(cat)}`,
                       backgroundColor: categoryBg(cat)
                     },
                     children: [
-                      jsx(Codicon, {
-                        name: 'milestone',
-                        size: '0.8rem',
-                        style: { color: categoryIcon(cat) },
-                        className: 'shrink-0'
+                      jsx('div', {
+                        className: 'flex h-8 w-8 shrink-0 items-center justify-center rounded-md',
+                        style: {
+                          backgroundColor: `color-mix(in srgb, ${categoryColor(cat)} 18%, transparent)`,
+                          color: categoryIcon(cat)
+                        },
+                        children: jsx(Codicon, { name: 'milestone', size: '0.95rem' })
                       }),
-                      jsx('span', {
-                        className: 'truncate text-xs font-medium',
-                        children: b.name
-                      }),
-                      b.tier
-                        ? jsx(Badge, {
-                            variant: 'outline',
-                            className: cn('shrink-0 text-[0.625rem]', tierBadgeClass(b.tier)),
-                            children: b.tier
+                      jsxs('div', {
+                        className: 'min-w-0 flex-1',
+                        children: [
+                          jsx('span', {
+                            className: 'block truncate text-[0.8125rem] font-semibold leading-tight',
+                            children: b.name
+                          }),
+                          jsxs('div', {
+                            className: 'mt-0.5 flex items-center gap-1',
+                            children: [
+                              tierHex
+                                ? jsx('span', {
+                                    style: { backgroundColor: tierHex },
+                                    className: 'h-1.5 w-1.5 shrink-0 rounded-full'
+                                  })
+                                : null,
+                              jsx('span', {
+                                className: 'truncate text-[0.6875rem] font-medium',
+                                style: { color: tierTextColor(b.tier) },
+                                children: b.tier || 'Earned'
+                              })
+                            ]
                           })
-                        : null
+                        ]
+                      })
                     ]
                   })
                 })
-              : jsx('span', {
-                  className: 'text-xs leading-snug',
-                  style: { color: 'var(--ui-text-secondary)' },
-                  children: isLoading || resolving
-                    ? 'Checking this session…'
-                    : 'No badges this session yet. Keep working and check back, or browse what is closest below.'
-                })
-          })
+              })
+            : jsx('span', {
+                className: 'mt-2.5 block text-xs leading-snug',
+                style: { color: 'var(--ui-text-secondary)' },
+                children: isLoading || resolving
+                  ? 'Checking this session…'
+                  : 'No badges this session yet. Keep working and check back, or browse what is closest below.'
+              })
         ]
       })
     ]
