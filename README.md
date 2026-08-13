@@ -1,6 +1,6 @@
 # Hermes Desktop Achievements
 
-[![Release](https://img.shields.io/github/v/release/CliffWade/hermes-desktop-achievements?sort=semver&style=for-the-badge&label=Version&color=7B2D8E)](https://github.com/CliffWade/hermes-desktop-achievements/releases)
+[![Release](https://img.shields.io/github/v/release/CliffWade/hermes-desktop-achievements?sort=semver&style=for-the-badge&label=Version&color=7B2D8E&v=1)](https://github.com/CliffWade/hermes-desktop-achievements/releases)
 [![License](https://img.shields.io/github/license/CliffWade/hermes-desktop-achievements?style=for-the-badge&label=License)](https://github.com/CliffWade/hermes-desktop-achievements/blob/main/LICENSE)
 
 Achievements, right inside the Hermes desktop app, with unlock notifications.
