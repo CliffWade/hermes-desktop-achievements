@@ -1665,6 +1665,7 @@ function ShareCardOverlay({ item, onClose }) {
 // ── Mini stats ─────────────────────────────────────────────────────────────
 
 function MiniStats({ data }) {
+  const [ref, cols] = useCardCols()
   const items = data.achievements || []
   const unlocked = items.filter(a => a.unlocked)
   const byTier = {}
@@ -1682,37 +1683,107 @@ function MiniStats({ data }) {
 
   if (tiers.length === 0 && !busiest) return null
 
+  // Tier cards: emoji tile + count + darkened tier text, same identity
+  // anatomy as every other strip. Busiest day rides along as its own card.
+  const TIER_EMOJI = { Copper: '🥉', Silver: '🥈', Gold: '🥇', Diamond: '💎', Olympian: '🏆' }
+  const accent = FILTER_TAB_META.badges.color // violet, the main-tab hue
+  const busyColor = 'hsl(45 90% 50%)' // gold, matches the active-days metric
+
   return jsxs('div', {
-    className: 'px-6 pb-2',
+    ref,
+    className: 'px-6 pb-2.5',
     children: [
       jsxs('div', {
-        className: 'flex flex-wrap items-center gap-1.5 rounded-xl border border-(--ui-stroke-secondary) px-3 py-2',
-        style: { backgroundColor: 'var(--ui-bg-chrome)' },
+        className: 'mb-2 flex items-center gap-1.5',
         children: [
           jsx('span', {
-            className: 'text-[0.6875rem] font-medium',
-            style: { color: 'var(--ui-text-secondary)' },
+            style: { background: accent, opacity: 0.85 },
+            className: 'h-3.5 w-1 shrink-0 rounded-full'
+          }),
+          jsx('span', {
+            className: 'text-[0.6875rem] font-semibold uppercase tracking-wide',
+            style: { color: accent },
             children: 'Tiers'
           }),
+          jsx('span', {
+            className: 'rounded-full px-1.5 py-0.5 text-[0.625rem] font-semibold tabular-nums',
+            style: { color: accent, backgroundColor: `color-mix(in srgb, ${accent} 14%, transparent)` },
+            children: String(tiers.length)
+          })
+        ]
+      }),
+      jsxs('div', {
+        className: 'flex flex-wrap gap-2',
+        style: { display: 'flex', flexWrap: 'wrap' },
+        children: [
           ...tiers.map(t => {
             const c = tierColor(t)
-            return jsxs('span', {
+            return jsxs('div', {
               key: t,
-              className: 'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.6875rem] tabular-nums',
+              className: 'flex flex-col rounded-lg border border-(--ui-stroke-secondary) px-3 py-2.5',
               style: {
-                backgroundColor: c ? `color-mix(in srgb, ${c} 12%, transparent)` : 'var(--ui-bg-quaternary)',
-                color: c || 'var(--ui-text-secondary)'
+                width: cardWidth(Math.min(cols, 6), 8),
+                borderLeft: `3px solid ${c || 'var(--ui-stroke-secondary)'}`,
+                backgroundColor: c ? `color-mix(in srgb, ${c} 9%, transparent)` : 'var(--ui-bg-secondary)'
               },
-              children: [jsx('span', { className: 'font-semibold', children: String(byTier[t]) }), jsx('span', { children: t })]
+              children: [
+                jsxs('div', {
+                  className: 'flex items-center gap-2',
+                  children: [
+                    jsx('div', {
+                      className: 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                      style: {
+                        backgroundColor: c ? `color-mix(in srgb, ${c} 18%, transparent)` : 'var(--ui-bg-quaternary)'
+                      },
+                      children: jsx('span', { className: 'text-[1rem] leading-none', children: TIER_EMOJI[t] || '🏅' })
+                    }),
+                    jsx('span', {
+                      className: 'truncate text-[0.8125rem] font-semibold leading-tight',
+                      style: { color: tierTextColor(t) },
+                      children: t
+                    })
+                  ]
+                }),
+                jsx('div', {
+                  className: 'mt-1.5 text-[0.6875rem] tabular-nums',
+                  style: { color: 'var(--ui-text-secondary)' },
+                  children: `${String(byTier[t])} unlocked`
+                })
+              ]
             })
           }),
           busiest
-            ? jsxs('span', {
-                className: 'ml-auto text-[0.6875rem]',
-                style: { color: 'var(--ui-text-secondary)' },
+            ? jsxs('div', {
+                key: 'busiest',
+                className: 'flex flex-col rounded-lg border border-(--ui-stroke-secondary) px-3 py-2.5',
+                style: {
+                  width: cardWidth(Math.min(cols, 6), 8),
+                  borderLeft: `3px solid ${busyColor}`,
+                  backgroundColor: busyColor.replace(')', ' / 0.09)')
+                },
                 children: [
-                  jsx('span', { className: 'mr-1', children: 'Busiest day' }),
-                  jsx('span', { className: 'font-medium', children: busiest[0] })
+                  jsxs('div', {
+                    className: 'flex items-center gap-2',
+                    children: [
+                      jsx('div', {
+                        className: 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                        style: {
+                          backgroundColor: `color-mix(in srgb, ${busyColor} 18%, transparent)`,
+                          color: busyColor
+                        },
+                        children: jsx(Codicon, { name: 'calendar', size: '0.95rem' })
+                      }),
+                      jsx('span', {
+                        className: 'truncate text-[0.8125rem] font-semibold leading-tight',
+                        children: 'Busiest day'
+                      })
+                    ]
+                  }),
+                  jsx('div', {
+                    className: 'mt-1.5 text-[0.6875rem]',
+                    style: { color: 'var(--ui-text-secondary)' },
+                    children: `${busiest[0]} (${String(busiest[1])} unlocks)`
+                  })
                 ]
               })
             : null
