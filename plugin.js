@@ -1764,38 +1764,46 @@ function ActivityHeatmap({ activity }) {
   const totalDays = windowed.filter(d => d.sessions > 0).length
   const totalTools = windowed.reduce((n, d) => n + (d.tools || 0), 0)
 
-  // Bar height: 4px minimum for any activity, scaled up to 44px.
-  const barHeight = w => (w.tools > 0 ? Math.max(4, Math.round((w.tools / maxTools) * 44)) : 2)
+  // Bar height: 5px minimum for any activity, scaled up to 48px.
+  const barHeight = w => (w.tools > 0 ? Math.max(5, Math.round((w.tools / maxTools) * 48)) : 2)
 
   return jsxs('div', {
     className: 'px-6 pb-3',
     children: [
       jsxs('div', {
-        className: 'relative',
+        className: 'rounded-lg border border-(--ui-stroke-secondary) bg-(--ui-bg-secondary) px-3 py-2.5',
+        style: { maxWidth: 400 },
         children: [
           jsxs('div', {
-            className: 'flex items-end gap-[2px]',
+            className: 'flex items-end gap-[3px]',
             children: weeks.map((w, wi) =>
               jsx('div', {
                 key: wi,
-                className: cn(
-                  'min-w-[3px] flex-1 rounded-sm',
-                  w.tools > 0 ? 'bg-(--ui-accent)' : 'bg-(--ui-bg-quaternary)'
-                ),
-                style: { height: barHeight(w) }
+                className: 'w-[10px] shrink-0 rounded-sm',
+                style: {
+                  height: barHeight(w),
+                  background: w.tools > 0 ? 'hsl(205 85% 55%)' : 'var(--ui-bg-quaternary)'
+                }
               })
             )
           }),
           jsxs('div', {
-            className: 'mt-1 flex gap-[2px] text-[0.5625rem] text-(--ui-text-quaternary)',
+            className: 'mt-1 flex gap-[3px] text-[0.625rem] text-(--ui-text-secondary)',
             children: weeks.map((w, wi) => {
               const mark = monthMarks.find(m => m.weekStart === w.weekStart)
               return jsx('div', {
                 key: wi,
-                className: 'min-w-[3px] flex-1 whitespace-nowrap overflow-hidden',
+                className: 'w-[10px] shrink-0 overflow-visible whitespace-nowrap',
                 children: mark ? mark.m : ''
               })
             })
+          }),
+          jsxs('div', {
+            className: 'mt-1.5 flex items-center justify-between gap-2 text-[0.625rem] text-(--ui-text-secondary)',
+            children: [
+              jsx('span', { children: `Peak week: ${maxTools.toLocaleString()} calls` }),
+              jsx('span', { children: `${totalDays} active days` })
+            ]
           })
         ]
       })
@@ -2565,11 +2573,21 @@ function AchievementPreviewPanel({ card }) {
 function RecordsStrip({ records }) {
   const [ref, cols] = useCardCols()
   if (!records) return null
+  // Record identity: each personal best gets its own hue and icon so the
+  // strip reads like the rest of the page. Hues mirror the goal metric map
+  // where the record maps to a metric (best day = tool calls, busiest =
+  // sessions) and landmarks get their own colors.
+  const RECORD_META = {
+    best_day: { color: 'hsl(205 85% 55%)', icon: 'tools', label: 'Best day' },
+    busiest_day: { color: 'hsl(150 55% 45%)', icon: 'calendar', label: 'Busiest day' },
+    biggest_session: { color: 'hsl(250 55% 58%)', icon: 'milestone', label: 'Biggest session' },
+    longest_session: { color: 'hsl(15 75% 55%)', icon: 'clock', label: 'Longest session' }
+  }
   const items = [
-    records.best_day ? { label: 'Best day', value: `${records.best_day.tool_calls.toLocaleString()} calls`, sub: records.best_day.date } : null,
-    records.busiest_day ? { label: 'Busiest day', value: `${records.busiest_day.sessions} sessions`, sub: records.busiest_day.date } : null,
-    records.biggest_session ? { label: 'Biggest session', value: records.biggest_session.title, sub: `${records.biggest_session.tool_calls} calls` } : null,
-    records.longest_session ? { label: 'Longest session', value: records.longest_session.title, sub: `${records.longest_session.messages} msgs` } : null
+    records.best_day ? { key: 'best_day', value: `${records.best_day.tool_calls.toLocaleString()} calls`, sub: records.best_day.date } : null,
+    records.busiest_day ? { key: 'busiest_day', value: `${records.busiest_day.sessions} sessions`, sub: records.busiest_day.date } : null,
+    records.biggest_session ? { key: 'biggest_session', value: records.biggest_session.title, sub: `${records.biggest_session.tool_calls} calls` } : null,
+    records.longest_session ? { key: 'longest_session', value: records.longest_session.title, sub: `${records.longest_session.messages} msgs` } : null
   ].filter(Boolean)
   if (items.length === 0) return null
 
@@ -2580,17 +2598,46 @@ function RecordsStrip({ records }) {
       jsxs('div', {
         className: 'flex flex-wrap gap-2',
         style: { display: 'flex', flexWrap: 'wrap' },
-        children: items.map(it =>
-          jsxs('div', {
-            className: 'flex flex-col rounded-lg border border-(--ui-stroke-secondary) bg-(--ui-bg-secondary) p-2',
-            style: { width: cardWidth(Math.min(cols, 4), 6) },
+        children: items.map(it => {
+          const meta = RECORD_META[it.key]
+          return jsxs('div', {
+            key: it.key,
+            className: 'flex flex-col rounded-lg border border-(--ui-stroke-secondary) px-3 py-2.5',
+            style: {
+              width: cardWidth(Math.min(cols, 4)),
+              borderLeft: `3px solid ${meta.color}`,
+              backgroundColor: meta.color.replace(')', ' / 0.09)')
+            },
             children: [
-              jsx('span', { className: 'text-[0.5625rem] font-medium uppercase tracking-wide text-(--ui-text-quaternary)', children: it.label }),
-              jsx('span', { className: 'mt-0.5 truncate text-[0.75rem] font-medium leading-tight', children: it.value }),
-              jsx('span', { className: 'truncate text-[0.5625rem] text-(--ui-text-quaternary)', children: it.sub })
+              jsxs('div', {
+                className: 'flex items-center gap-2',
+                children: [
+                  jsx('div', {
+                    className: 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                    style: {
+                      backgroundColor: `color-mix(in srgb, ${meta.color} 18%, transparent)`,
+                      color: meta.color
+                    },
+                    children: jsx(Codicon, { name: meta.icon, size: '0.95rem' })
+                  }),
+                  jsx('span', {
+                    className: 'text-[0.6875rem] font-semibold uppercase tracking-wide',
+                    style: { color: meta.color },
+                    children: meta.label
+                  })
+                ]
+              }),
+              jsx('span', {
+                className: 'mt-1.5 line-clamp-2 text-[0.8125rem] font-semibold leading-tight',
+                children: it.value
+              }),
+              jsx('span', {
+                className: 'mt-0.5 truncate text-[0.6875rem] text-(--ui-text-secondary)',
+                children: it.sub
+              })
             ]
           })
-        )
+        })
       })
     ]
   })
