@@ -2931,89 +2931,170 @@ function QuestsTab({ data }) {
     })
   }
 
+  // Quest identity: cycle the goal-hue palette + proven codicons so each
+  // quest keeps the same hue in the timeline and its card. Done state is
+  // signaled by the green pill + date line, not by washing the card green.
+  const QUEST_HUES = ['hsl(150 55% 45%)', 'hsl(205 85% 55%)', 'hsl(45 90% 50%)', 'hsl(250 55% 58%)', 'hsl(330 70% 55%)', 'hsl(15 75% 55%)']
+  const QUEST_ICONS = ['zap', 'milestone', 'star', 'target', 'pulse', 'flame', 'tools', 'calendar']
+  const hueById = {}
+  const iconById = {}
+  quests.forEach((q, i) => {
+    hueById[q.id] = QUEST_HUES[i % QUEST_HUES.length]
+    iconById[q.id] = QUEST_ICONS[i % QUEST_ICONS.length]
+  })
+  const questHue = id => hueById[id] || QUEST_HUES[0]
+  const questIcon = id => iconById[id] || 'target'
+  const questAccent = FILTER_TAB_META.quests.color // tab pink, headers only
+
   return jsx('div', {
     ref,
     className: 'flex-1 overflow-y-auto p-6',
     children: [
       recent.length > 0
         ? jsxs('div', {
-            className: 'mb-5',
+            className: 'mb-6',
             children: [
-              jsx('div', {
-                className: 'mb-2 text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary)',
-                children: 'Recently completed'
+              // Section header: accent bar + uppercase colored title + count
+              // pill, same language as the challenges rows.
+              jsxs('div', {
+                className: 'mb-3 flex items-center gap-1.5',
+                children: [
+                  jsx('span', {
+                    style: { background: questAccent, opacity: 0.85 },
+                    className: 'h-3.5 w-1 shrink-0 rounded-full'
+                  }),
+                  jsx('span', {
+                    className: 'text-[0.6875rem] font-semibold uppercase tracking-wide',
+                    style: { color: questAccent },
+                    children: 'Recently completed'
+                  }),
+                  jsx('span', {
+                    className: 'rounded-full px-1.5 py-0.5 text-[0.625rem] font-semibold tabular-nums',
+                    style: { color: questAccent, backgroundColor: `color-mix(in srgb, ${questAccent} 14%, transparent)` },
+                    children: recent.length
+                  })
+                ]
               }),
               jsx('ol', {
                 className: 'relative space-y-3 border-l border-(--ui-stroke-secondary) pl-5',
-                children: recent.map(q =>
-                  jsxs('li', {
+                children: recent.map(q => {
+                  const hue = questHue(q.id)
+                  return jsxs('li', {
                     key: q.id,
                     className: 'relative',
                     children: [
                       jsx('span', {
-                        style: { left: -26 },
-                        className:
-                          'absolute top-1 h-2.5 w-2.5 rounded-full bg-(--ui-ok) ring-4 ring-(--ui-bg-primary)'
+                        style: { left: -26, background: hue },
+                        className: 'absolute top-1 h-2.5 w-2.5 rounded-full ring-4 ring-(--ui-bg-primary)'
                       }),
                       jsxs('div', {
                         className: 'flex items-center justify-between gap-2',
                         children: [
-                          jsx('span', { className: 'text-sm font-medium', children: q.name }),
-                          jsx('span', {
-                            className: 'shrink-0 text-[0.6875rem] text-(--ui-text-quaternary)',
-                            children: `${new Date((q.completed_at || 0) * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · +${q.xp} XP`
+                          jsx('span', { className: 'truncate text-sm font-semibold leading-tight', children: q.name }),
+                          jsxs('div', {
+                            className: 'flex shrink-0 items-center gap-1.5',
+                            children: [
+                              jsx('span', {
+                                className: 'text-[0.6875rem] tabular-nums',
+                                style: { color: 'var(--ui-text-secondary)' },
+                                children: new Date((q.completed_at || 0) * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                              }),
+                              jsx('span', {
+                                className: 'rounded-full px-1.5 py-0.5 text-[0.625rem] font-semibold tabular-nums',
+                                style: { color: hue, backgroundColor: `color-mix(in srgb, ${hue} 14%, transparent)` },
+                                children: `+${q.xp} XP`
+                              })
+                            ]
                           })
                         ]
                       }),
-                      jsx('div', { className: 'mt-0.5 text-xs text-(--ui-text-tertiary)', children: q.description })
+                      jsx('div', {
+                        className: 'mt-0.5 text-xs leading-snug',
+                        style: { color: 'var(--ui-text-secondary)' },
+                        children: q.description
+                      })
                     ]
                   })
-                )
+                })
               })
             ]
           })
         : null,
-      jsx('div', {
-        className: 'mb-2 text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary)',
-        children: `All quests (${quests.length})`
+      // Section header for the quest grid.
+      jsxs('div', {
+        className: 'mb-3 flex items-center gap-1.5',
+        children: [
+          jsx('span', {
+            style: { background: questAccent, opacity: 0.85 },
+            className: 'h-3.5 w-1 shrink-0 rounded-full'
+          }),
+          jsx('span', {
+            className: 'text-[0.6875rem] font-semibold uppercase tracking-wide',
+            style: { color: questAccent },
+            children: `All quests (${quests.length})`
+          })
+        ]
       }),
       jsxs('div', {
         className: 'flex flex-wrap gap-2',
         style: { display: 'flex', flexWrap: 'wrap' },
-        children: quests.map(q =>
-          jsxs('div', {
+        children: quests.map(q => {
+          const hue = questHue(q.id)
+          const icon = questIcon(q.id)
+          return jsxs('div', {
             key: q.id,
-            className: cn(
-              'flex flex-col rounded-lg border p-3',
-              q.done
-                ? 'border-(--ui-ok)/50 bg-(--ui-ok)/10'
-                : 'border-(--ui-stroke-secondary) bg-(--ui-bg-secondary)'
-            ),
-            style: { width: cardWidth(Math.min(cols, 5)) },
+            className: 'flex flex-col rounded-lg border border-(--ui-stroke-secondary) px-3 py-2.5',
+            style: {
+              width: cardWidth(Math.min(cols, 4)),
+              borderLeft: `3px solid ${hue}`,
+              backgroundColor: hue.replace(')', ' / 0.09)')
+            },
             children: [
               jsxs('div', {
-                className: 'flex items-center justify-between gap-1',
+                className: 'flex items-center justify-between gap-1.5',
                 children: [
-                  jsx('span', { className: 'truncate text-[0.8125rem] font-medium leading-tight', children: q.name }),
-                  jsx('span', {
-                    className: cn(
-                      'shrink-0 text-[0.625rem] font-medium',
-                      q.done ? 'text-(--ui-ok)' : 'text-(--ui-text-quaternary)'
-                    ),
-                    children: q.done ? '✓ Done' : `+${q.xp} XP`
-                  })
+                  jsxs('div', {
+                    className: 'flex min-w-0 items-center gap-2',
+                    children: [
+                      jsx('div', {
+                        className: 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                        style: {
+                          backgroundColor: `color-mix(in srgb, ${hue} 18%, transparent)`,
+                          color: hue
+                        },
+                        children: jsx(Codicon, { name: icon, size: '0.95rem' })
+                      }),
+                      jsx('span', { className: 'truncate text-[0.8125rem] font-semibold leading-tight', children: q.name })
+                    ]
+                  }),
+                  q.done
+                    ? jsx('span', {
+                        className: 'shrink-0 rounded-full px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide',
+                        style: { color: 'var(--ui-ok)', backgroundColor: 'color-mix(in srgb, var(--ui-ok) 14%, transparent)' },
+                        children: '✓ Done'
+                      })
+                    : jsx('span', {
+                        className: 'shrink-0 rounded-full px-1.5 py-0.5 text-[0.625rem] font-semibold tabular-nums',
+                        style: { color: hue, backgroundColor: `color-mix(in srgb, ${hue} 14%, transparent)` },
+                        children: `+${q.xp} XP`
+                      })
                 ]
               }),
-              jsx('div', { className: 'mt-1 text-xs leading-snug text-(--ui-text-tertiary)', children: q.description }),
+              jsx('div', {
+                className: 'mt-1.5 line-clamp-2 text-[0.6875rem] leading-snug',
+                style: { color: 'var(--ui-text-secondary)' },
+                children: q.description
+              }),
               q.done && q.completed_at
                 ? jsx('div', {
-                    className: 'mt-2 text-[0.6875rem] text-(--ui-text-quaternary)',
+                    className: 'mt-2 text-[0.6875rem] tabular-nums',
+                    style: { color: 'var(--ui-text-secondary)' },
                     children: `Completed ${new Date(q.completed_at * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
                   })
                 : null
             ]
           })
-        )
+        })
       })
     ]
   })
