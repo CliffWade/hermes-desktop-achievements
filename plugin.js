@@ -2017,15 +2017,54 @@ function NextUpStrip({ items, onHover, onLeave }) {
 
 // ── Session context ─────────────────────────────────────────────────────────
 
+// The gateway's `session.active_list` RPC returns live sessions with BOTH
+// identities: `id` (runtime session id, what host.state.activeSessionId
+// exposes) and `session_key` (stored session id, e.g. 20260807_170436_b7b698).
+// The achievements backend keys per-session badges by the STORED id, so the
+// runtime id must be translated before querying — otherwise the lookup misses
+// and "This session" always renders empty. See AGENTS.md on identity: live
+// streaming keys off the runtime identity; durable navigation off the stored.
+async function resolveStoredSessionId(runtimeId) {
+  if (!runtimeId) return null
+  try {
+    const res = await host.request('session.active_list', {})
+    const sessions = (res && res.sessions) || []
+    const match = sessions.find(s => s.id === runtimeId)
+    if (match && match.session_key) return match.session_key
+  } catch (e) {
+    // Gateway unavailable or method missing — fall through to the raw id.
+  }
+  return runtimeId
+}
+
 function SessionBadges() {
   const sessionId = useValue(host.state.activeSessionId)
+  const [storedId, setStoredId] = useState(undefined)
+  const resolving = storedId === undefined
+
+  useEffect(() => {
+    let cancelled = false
+    setStoredId(undefined)
+    if (!sessionId) {
+      setStoredId(null)
+      return
+    }
+    resolveStoredSessionId(sessionId).then(resolved => {
+      if (!cancelled) setStoredId(resolved || sessionId)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [sessionId])
+
+  const effectiveId = storedId || sessionId
   const { data, isLoading } = useQuery({
-    queryKey: ['hermes-achievements', 'session', sessionId ?? 'none'],
+    queryKey: ['hermes-achievements', 'session', effectiveId ?? 'none'],
     queryFn: () =>
-      sessionId
-        ? rest('/sessions/' + encodeURIComponent(sessionId) + '/badges', { timeoutMs: 8000 })
+      effectiveId
+        ? rest('/sessions/' + encodeURIComponent(effectiveId) + '/badges', { timeoutMs: 8000 })
         : Promise.resolve({ badges: [] }),
-    enabled: !!sessionId,
+    enabled: !!effectiveId && !resolving,
     refetchInterval: 60_000,
     staleTime: 30_000
   })
@@ -2033,27 +2072,39 @@ function SessionBadges() {
   if (!sessionId) return null
 
   const badges = data?.badges || []
+  const accent = FILTER_TAB_META.badges.color
 
   return jsxs('div', {
     className: 'px-6 pb-2',
     children: [
       jsxs('div', {
         className: 'rounded-xl border border-(--ui-stroke-secondary) px-4 py-3',
-        style: { backgroundColor: 'var(--ui-bg-chrome)' },
+        style: { maxWidth: 840, backgroundColor: 'var(--ui-bg-chrome)' },
         children: [
           jsxs('div', {
             className: 'flex items-center justify-between gap-2',
             children: [
               jsxs('div', {
-                className: 'flex items-center gap-1.5',
+                className: 'flex min-w-0 items-center gap-1.5',
                 children: [
-                  jsx(Codicon, { name: 'zap', size: '0.85rem', style: { color: 'var(--ui-accent)' } }),
-                  jsx('span', { className: 'text-xs font-semibold', children: 'This session' })
+                  // Section color bar + title, same language as the app's
+                  // Section component (colored vertical bar, uppercase
+                  // colored label) but carrying the Badges tab accent.
+                  jsx('span', {
+                    style: { background: accent, opacity: 0.85 },
+                    className: 'h-3.5 w-1 shrink-0 rounded-full'
+                  }),
+                  jsx(Codicon, { name: 'zap', size: '0.85rem', style: { color: accent } }),
+                  jsx('span', {
+                    className: 'text-[0.6875rem] font-medium uppercase tracking-wide',
+                    style: { color: accent },
+                    children: 'This session'
+                  })
                 ]
               }),
               badges.length > 0
                 ? jsx('span', {
-                    className: 'text-[0.6875rem] tabular-nums',
+                    className: 'shrink-0 text-[0.6875rem] tabular-nums',
                     style: { color: 'var(--ui-text-secondary)' },
                     children: `${badges.length} badge${badges.length === 1 ? '' : 's'}`
                   })
@@ -2061,20 +2112,48 @@ function SessionBadges() {
             ]
           }),
           jsxs('div', {
-            className: 'mt-2 flex flex-wrap items-center gap-1.5',
+            className: 'mt-2.5 flex flex-wrap items-stretch gap-1.5',
             children: badges.length > 0
-              ? badges.map(b =>
-                  jsx(Badge, {
+              ? badges.map(b => {
+                  // Mini badge chip with the SAME identity language as the
+                  // grid's AchievementCard: 3px category left accent, soft
+                  // tinted fill, colored milestone icon, tier chip. Compact
+                  // so a full session's haul reads at a glance; the grid
+                  // below carries the deep detail.
+                  const cat = b.category || ''
+                  return jsxs('div', {
                     key: b.id,
-                    variant: 'outline',
-                    className: cn('text-xs', tierBadgeClass(b.tier)),
-                    children: b.tier ? `${b.name} · ${b.tier}` : b.name
+                    className:
+                      'flex min-w-0 items-center gap-1.5 rounded-md border border-(--ui-stroke-secondary) px-2 py-1',
+                    style: {
+                      borderLeft: `3px solid ${categoryColor(cat)}`,
+                      backgroundColor: categoryBg(cat)
+                    },
+                    children: [
+                      jsx(Codicon, {
+                        name: 'milestone',
+                        size: '0.8rem',
+                        style: { color: categoryIcon(cat) },
+                        className: 'shrink-0'
+                      }),
+                      jsx('span', {
+                        className: 'truncate text-xs font-medium',
+                        children: b.name
+                      }),
+                      b.tier
+                        ? jsx(Badge, {
+                            variant: 'outline',
+                            className: cn('shrink-0 text-[0.625rem]', tierBadgeClass(b.tier)),
+                            children: b.tier
+                          })
+                        : null
+                    ]
                   })
-                )
+                })
               : jsx('span', {
                   className: 'text-xs leading-snug',
                   style: { color: 'var(--ui-text-secondary)' },
-                  children: isLoading
+                  children: isLoading || resolving
                     ? 'Checking this session…'
                     : 'No badges this session yet. Keep working and check back, or browse what is closest below.'
                 })
