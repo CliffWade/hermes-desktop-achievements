@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.0.0
+
+      - name: Check plugin.js parses as ESM
+        run: |
+          cp plugin.js /tmp/check.mjs
+          node --check /tmp/check.mjs
+
+      - name: Check no duplicate top-level declarations
+        run: |
+          node - <<'EOF'
+          const fs = require('fs')
+          const src = fs.readFileSync('plugin.js', 'utf8')
+          const cleaned = src
+            .replace(/\/\*[\s\S]*?\*\//g, '')
+            .replace(/\/\/[^\n]*/g, '')
+            .replace(/`[^`]*`/g, '')
+            .replace(/"[^"]*"/g, '')
+            .replace(/'[^']*'/g, '')
+          const names = []
+          const re = /^(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)|^(?:const|let|var)\s+([A-Za-z_$][\w$]*)/gm
+          let m
+          while ((m = re.exec(cleaned))) names.push(m[1] || m[2])
+          const dup = names.filter((n, i) => names.indexOf(n) !== i)
+          if (dup.length) {
+            console.error('DUPLICATES: ' + [...new Set(dup)].join(', '))
+            process.exit(1)
+          }
+          console.log(`top-level declarations OK (${names.length})`)
+          EOF
+
+      - name: Check README screenshot references exist
+        run: |
+          node - <<'EOF'
+          const fs = require('fs')
+          const path = require('path')
+          const readme = fs.readFileSync('README.md', 'utf8')
+          const refs = [...readme.matchAll(/docs\/([a-z0-9-]+\.png)/g)].map(m => m[1])
+          const missing = refs.filter(r => !fs.existsSync(path.join('docs', r)))
+          if (missing.length) {
+            console.error('missing screenshots: ' + missing.join(', '))
+            process.exit(1)
+          }
+          console.log(`README screenshots OK (${refs.length} referenced)`)
+          EOF
