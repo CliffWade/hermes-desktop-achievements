@@ -2990,47 +2990,72 @@ function CustomGoalsSection({ data }) {
     ref,
     className: 'px-6 pb-2.5',
     children: [
+      // Form frame: chrome card matching the goal-card language, with a
+      // local accent var so focus rings share the section hue.
       jsxs('div', {
-        className: 'mb-2 flex flex-wrap items-center gap-1.5',
+        className: 'mb-3 rounded-lg border border-(--ui-stroke-secondary) bg-(--ui-bg-secondary) px-3 py-2.5',
+        style: { '--goal-accent': 'hsl(0 70% 60%)' },
         children: [
-          jsx('input', {
-            className:
-              'w-40 rounded-md border border-(--ui-stroke-secondary) bg-(--ui-bg-secondary) px-2 py-1 text-xs outline-none focus:border-(--ui-accent)',
-            placeholder: 'Goal name…',
-            value: name,
-            onChange: e => setName(e.target.value)
-          }),
-          jsx('select', {
-            className:
-              'rounded-md border border-(--ui-stroke-secondary) bg-(--ui-bg-secondary) px-2 py-1 text-xs outline-none focus:border-(--ui-accent)',
-            value: metric,
-            onChange: e => setMetric(e.target.value),
-            children: Object.entries(options).map(([k, label]) =>
-              jsx('option', { key: k, value: k, children: label })
-            )
-          }),
-          jsx('input', {
-            className:
-              'w-20 rounded-md border border-(--ui-stroke-secondary) bg-(--ui-bg-secondary) px-2 py-1 text-xs tabular-nums outline-none focus:border-(--ui-accent)',
-            placeholder: 'Target',
-            type: 'number',
-            min: 1,
-            value: target,
-            onChange: e => setTarget(e.target.value)
-          }),
-          jsx(Button, {
-            variant: 'secondary',
-            size: 'sm',
-            disabled: saving,
-            onClick: create,
-            children: saving ? 'Adding…' : 'Add goal'
+          jsxs('div', {
+            className: 'flex flex-wrap items-center gap-2',
+            children: [
+              jsx('input', {
+                className:
+                  'min-w-44 flex-1 rounded-lg border border-(--ui-stroke-secondary) bg-(--background) px-2.5 py-1.5 text-[0.8125rem] outline-none transition-colors focus:border-(--goal-accent)',
+                placeholder: 'Goal name…',
+                value: name,
+                onChange: e => setName(e.target.value)
+              }),
+              jsx('select', {
+                className:
+                  'rounded-lg border border-(--ui-stroke-secondary) bg-(--background) px-2.5 py-1.5 text-[0.8125rem] outline-none transition-colors focus:border-(--goal-accent)',
+                value: metric,
+                onChange: e => setMetric(e.target.value),
+                children: Object.entries(options).map(([k, label]) =>
+                  jsx('option', { key: k, value: k, children: label })
+                )
+              }),
+              jsx('input', {
+                className:
+                  'w-24 rounded-lg border border-(--ui-stroke-secondary) bg-(--background) px-2.5 py-1.5 text-[0.8125rem] tabular-nums outline-none transition-colors focus:border-(--goal-accent)',
+                placeholder: 'Target',
+                type: 'number',
+                min: 1,
+                value: target,
+                onChange: e => setTarget(e.target.value)
+              }),
+              // Coral-filled button matches the section identity; white text
+              // passes contrast on the deeper shade.
+              jsx('button', {
+                type: 'button',
+                onClick: create,
+                disabled: saving,
+                className:
+                  'rounded-lg px-3.5 py-1.5 text-[0.8125rem] font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50',
+                style: { background: 'hsl(0 62% 42%)' },
+                children: saving ? 'Adding…' : 'Add goal'
+              })
+            ]
           })
         ]
       }),
       goals.length === 0
-        ? jsx('p', {
-            className: 'text-xs text-(--ui-text-secondary)',
-            children: 'No custom goals yet — set one above and watch it fill.'
+        ? jsxs('div', {
+            className: 'flex items-center gap-2.5 rounded-lg border border-dashed border-(--ui-stroke-secondary) px-3 py-3',
+            children: [
+              jsx('div', {
+                className: 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                style: {
+                  backgroundColor: 'color-mix(in srgb, hsl(0 70% 60%) 18%, transparent)',
+                  color: 'hsl(0 70% 60%)'
+                },
+                children: jsx(Codicon, { name: 'target', size: '0.95rem' })
+              }),
+              jsx('p', {
+                className: 'text-[0.8125rem] leading-snug text-(--ui-text-secondary)',
+                children: 'No custom goals yet. Set one above and watch it fill.'
+              })
+            ]
           })
         : jsxs('div', {
             className: 'flex flex-wrap gap-2',
@@ -3086,7 +3111,7 @@ function CustomGoalsSection({ data }) {
                             onClick: () => remove(g.id),
                             disabled: removing === g.id,
                             className:
-                              'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-(--ui-stroke-secondary) text-[0.625rem] transition-colors hover:border-(--ui-stroke-strong) hover:text-(--ui-text-primary)',
+                              'flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-(--ui-stroke-secondary) text-[0.6875rem] transition-colors hover:border-(--ui-stroke-strong) hover:text-(--ui-text-primary)',
                             style: { color: 'var(--ui-text-secondary)' },
                             children: removing === g.id ? '…' : '✕'
                           })
@@ -3391,18 +3416,18 @@ function AchievementsPage() {
         : null,
       isGoals
         ? jsx(Section, {
-            id: 'goals',
-            title: 'Goals',
-            color: 'hsl(150 55% 45%)',
-            children: jsx(ChallengesStrip, { challenges: data.challenges, weekly: data.weekly })
-          })
-        : null,
-      isGoals
-        ? jsx(Section, {
             id: 'custom-goals',
             title: 'Custom goals',
             color: 'hsl(0 70% 60%)',
             children: jsx(CustomGoalsSection, { data })
+          })
+        : null,
+      isGoals
+        ? jsx(Section, {
+            id: 'goals',
+            title: 'Goals',
+            color: 'hsl(150 55% 45%)',
+            children: jsx(ChallengesStrip, { challenges: data.challenges, weekly: data.weekly })
           })
         : null,
       filter === 'history'
