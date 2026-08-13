@@ -2054,7 +2054,6 @@ function SessionBadges() {
   const sessionId = useValue(host.state.activeSessionId)
   const [storedId, setStoredId] = useState(undefined)
   const resolving = storedId === undefined
-  const [gridRef, cols] = useCardCols()
 
   useEffect(() => {
     let cancelled = false
@@ -2130,43 +2129,52 @@ function SessionBadges() {
           }),
           badges.length > 0
             ? jsx('div', {
-                ref: gridRef,
-                className: 'mt-3 flex flex-wrap gap-2',
+                className: 'mt-3 grid gap-2',
+                // Deterministic responsive grid: ~3 cards across at the
+                // card's 840px cap (each ≈260px). Not useCardCols: that
+                // hook only observes a ref that exists on FIRST render, and
+                // this grid mounts after the query resolves, so it locked
+                // onto window.innerWidth (6 columns on wide monitors) and
+                // every name truncated. auto-fill keeps full names visible,
+                // collapsing gracefully on narrower windows.
+                style: {
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
+                  gap: 8
+                },
                 children: badges.map(b => {
                   // Mini achievement card: same identity language as the grid
                   // (3px category left accent, soft tinted fill, colored
-                  // milestone icon) but with a proper icon tile and a tier
-                  // chip colored by the TIER hue, so Gold reads gold and the
-                  // card stops being a box-in-a-box. Equal widths via the
-                  // page's cardWidth(cols) rhythm keep rows aligned.
+                  // milestone icon) with a proper icon tile and a tier chip
+                  // colored by the TIER hue. Names wrap up to 2 lines instead
+                  // of truncating so the haul stays readable.
                   const cat = b.category || ''
                   const tierHex = tierColor(b.tier)
                   return jsxs('div', {
                     key: b.id,
-                    className: 'flex items-center gap-2 rounded-lg border border-(--ui-stroke-secondary) px-2.5 py-2',
+                    className: 'flex items-center gap-2.5 rounded-lg border border-(--ui-stroke-secondary) px-3 py-2.5',
                     style: {
-                      width: cardWidth(cols),
                       borderLeft: `3px solid ${categoryColor(cat)}`,
                       backgroundColor: categoryBg(cat)
                     },
                     children: [
                       jsx('div', {
-                        className: 'flex h-8 w-8 shrink-0 items-center justify-center rounded-md',
+                        className: 'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
                         style: {
                           backgroundColor: `color-mix(in srgb, ${categoryColor(cat)} 18%, transparent)`,
                           color: categoryIcon(cat)
                         },
-                        children: jsx(Codicon, { name: 'milestone', size: '0.95rem' })
+                        children: jsx(Codicon, { name: 'milestone', size: '1rem' })
                       }),
                       jsxs('div', {
                         className: 'min-w-0 flex-1',
                         children: [
                           jsx('span', {
-                            className: 'block truncate text-[0.8125rem] font-semibold leading-tight',
+                            className: 'line-clamp-2 text-[0.8125rem] font-semibold leading-snug',
                             children: b.name
                           }),
                           jsxs('div', {
-                            className: 'mt-0.5 flex items-center gap-1',
+                            className: 'mt-1 flex items-center gap-1',
                             children: [
                               tierHex
                                 ? jsx('span', {
