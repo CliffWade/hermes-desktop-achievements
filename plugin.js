@@ -2091,6 +2091,42 @@ function ScoreHeader({ data, onRescan, rescinding, onOpenSettings }) {
               })
             ]
           }),
+          // Progress ring bubble: the headline stat of the page. Conic
+          // gradient ring paints the unlock percentage, inner disc holds the
+          // big fraction. Inline sizing so Tailwind purge can't strip it.
+          jsxs('div', {
+            className: 'flex shrink-0 items-center justify-center',
+            style: {
+              width: 76,
+              height: 76,
+              borderRadius: '50%',
+              background: `conic-gradient(var(--ui-accent) ${pct}%, color-mix(in srgb, var(--ui-accent) 16%, transparent) ${pct}%)`
+            },
+            children: [
+              jsxs('div', {
+                className: 'flex flex-col items-center justify-center',
+                style: {
+                  width: 62,
+                  height: 62,
+                  borderRadius: '50%',
+                  backgroundColor: 'var(--ui-bg-chrome)',
+                  boxShadow: 'inset 0 0 0 1px var(--ui-stroke-secondary)'
+                },
+                children: [
+                  jsx('span', {
+                    className: 'text-[0.9375rem] font-bold leading-none tabular-nums',
+                    style: { color: 'var(--ui-accent)' },
+                    children: `${unlocked_count}/${total_count}`
+                  }),
+                  jsx('span', {
+                    className: 'mt-0.5 text-[0.5rem] font-semibold uppercase leading-none tracking-wide',
+                    style: { color: 'var(--ui-text-secondary)' },
+                    children: `${pct}%`
+                  })
+                ]
+              })
+            ]
+          }),
           // Center block: level name, XP bar, meta line.
           jsxs('div', {
             className: 'min-w-0 flex-1',
@@ -2101,12 +2137,7 @@ function ScoreHeader({ data, onRescan, rescinding, onOpenSettings }) {
                   jsxs('div', {
                     className: 'flex min-w-0 items-baseline gap-2',
                     children: [
-                      jsx('span', { className: 'truncate text-sm font-semibold', children: level.name || 'Achievements' }),
-                      jsx('span', {
-                        className: 'shrink-0 text-[0.6875rem] tabular-nums',
-                        style: { color: 'var(--ui-text-secondary)' },
-                        children: `${unlocked_count}/${total_count} unlocked · ${pct}%`
-                      })
+                      jsx('span', { className: 'truncate text-sm font-semibold', children: level.name || 'Achievements' })
                     ]
                   }),
                   level.xp_for_next
