@@ -956,7 +956,7 @@ function CustomTab() {
 // Renders the SAME AchievementCard used in the grid below, so the row
 // looks identical to the cards under it — same height, same density,
 // same 6-column rhythm.
-function RecentAchievements() {
+function RecentAchievements({ onHover, onLeave }) {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['hermes-achievements', 'recent'],
     queryFn: () => rest('/recent-unlocks'),
@@ -1003,6 +1003,10 @@ function RecentAchievements() {
         return jsx('div', {
           key: item.id,
           className: 'relative',
+          onMouseEnter: () => onHover && onHover(item),
+          onMouseLeave: () => onLeave && onLeave(),
+          onFocus: () => onHover && onHover(item),
+          onBlur: () => onLeave && onLeave(),
           style: { width: cardWidth(cols), animationDelay: `${i * 35}ms` },
           children: jsx(AchievementCard, { item, showPin: false })
         })
@@ -3635,7 +3639,7 @@ function AchievementsPage() {
       isMain ? jsx(MiniStats, { data }) : null,
       isBadges ? jsx(SessionBadges, { onHover: setHoverItem, onLeave: () => setHoverItem(null) }) : null,
       isBadges ? jsx(NextUpStrip, { items: nextUp, onHover: setHoverItem, onLeave: () => setHoverItem(null) }) : null,
-      isBadges ? jsx(RecentAchievements, {}) : null,
+      isBadges ? jsx(RecentAchievements, { onHover: setHoverItem, onLeave: () => setHoverItem(null) }) : null,
       isRecords
         ? jsx(Section, {
             id: 'records',
