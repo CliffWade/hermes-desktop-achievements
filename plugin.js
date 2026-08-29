@@ -1366,6 +1366,48 @@ function truncateCanvas(ctx, text, maxW) {
   return t + '…'
 }
 
+// Render the badge wall as SVG client-side (mirrors drawBadgeWallPng layout) so
+// the SVG export works even from a headless `hermes serve` backend (the old path
+// hit /badge-wall.svg, a dashboard-only route that 404'd outside `hermes dashboard`).
+function buildBadgeWallSvg(achievements, level) {
+  const cols = 8
+  const cardW = 150
+  const cardH = 92
+  const gap = 12
+  const pad = 28
+  const headerH = 46
+  const rows = Math.max(1, Math.ceil(achievements.length / cols))
+  const W = pad * 2 + cols * cardW + (cols - 1) * gap
+  const H = headerH + pad * 2 + rows * cardH + (rows - 1) * gap
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+  const catColor = cat => `hsl(${CATEGORY_HSL[cat] || '220'} 55% 45%)`
+  const unlocked = achievements.filter(a => a.unlocked).length
+  const p = []
+  p.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect width="${W}" height="${H}" fill="#fafafa"/>`)
+  p.push(`<text x="${pad}" y="30" font-family="-apple-system, system-ui, sans-serif" font-size="15" font-weight="700" fill="#333">Hermes Achievements - ${esc(unlocked)}/${esc(achievements.length)} unlocked - Level ${esc(level.level)} ${esc(level.name)}</text>`)
+  achievements.forEach((a, idx) => {
+    const r = Math.floor(idx / cols)
+    const c = idx % cols
+    const x = pad + c * (cardW + gap)
+    const y = headerH + pad + r * (cardH + gap)
+    const color = catColor(a.category || '')
+    const name = esc(a.state === 'secret' ? '???' : (a.name || ''))
+    const cat = esc(a.category || '')
+    const tier = esc(a.tier || '')
+    const pct = a.unlocked ? 100 : Math.min(100, a.progress_pct || 0)
+    const fill = a.kind === 'collection' ? '#f7f3dc' : a.unlocked ? '#f0f0f0' : '#f4f4f7'
+    const barW = Math.round((cardW - 24) * pct / 100)
+    p.push(`<g><rect x="${x}" y="${y}" width="${cardW}" height="${cardH}" rx="8" fill="${fill}" stroke="${color}" stroke-width="1.5"/><rect x="${x}" y="${y}" width="4" height="${cardH}" fill="${color}"/>`)
+    p.push(`<text x="${x + 12}" y="${y + 22}" font-family="-apple-system, system-ui, sans-serif" font-size="10.5" font-weight="600" fill="#333" textLength="${cardW - 22}" lengthAdjust="spacingAndGlyphs">${name}</text>`)
+    p.push(`<text x="${x + 12}" y="${y + 38}" font-family="-apple-system, system-ui, sans-serif" font-size="7.5" fill="#888">${cat}</text>`)
+    p.push(`<rect x="${x + 12}" y="${y + 46}" width="${cardW - 24}" height="5" fill="#e5e5e5"/><rect x="${x + 12}" y="${y + 46}" width="${barW}" height="5" fill="${color}"/>`)
+    p.push(`<text x="${x + 12}" y="${y + 70}" font-family="-apple-system, system-ui, sans-serif" font-size="8" font-weight="600" fill="${color}">${tier || (a.unlocked ? 'EARNED' : 'locked')}</text>`)
+    p.push(`<text x="${x + cardW - 12}" y="${y + 70}" font-family="-apple-system, system-ui, sans-serif" font-size="8" fill="#999" text-anchor="end">${pct}%</text></g>`)
+  })
+  p.push('</svg>')
+  return p.join('')
+}
+
 function downloadText(filename, text) {
   try {
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
@@ -1457,7 +1499,7 @@ function ExportMenu({ data }) {
       open
         ? jsxs('div', {
             className:
-              'absolute right-0 top-full z-20 mt-1 w-40 overflow-hidden rounded-md border border-(--ui-stroke-secondary) bg-(--ui-bg-elevated) shadow-xl',
+              'absolute right-0 top-full z-50 mt-1 w-40 overflow-hidden rounded-md border border-(--ui-stroke-secondary) bg-(--ui-bg-elevated) shadow-xl',
             children: [
               jsx('button', {
                 type: 'button',
@@ -1496,9 +1538,8 @@ function ExportMenu({ data }) {
                 onClick: async () => {
                   setOpen(false)
                   try {
-                    const svg = await rest('/badge-wall.svg')
-                    const text = typeof svg === 'string' ? svg : JSON.stringify(svg)
-                    downloadText('hermes-achievements-wall.svg', text)
+                    const svg = buildBadgeWallSvg(data.achievements || [], data.level || { level: 1, name: 'Initiate' })
+                    downloadText('hermes-achievements-wall.svg', svg)
                     haptic('tap')
                   } catch (e) {
                     host.notify({ kind: 'error', message: `Badge wall export failed: ${e?.message ?? e}` })
