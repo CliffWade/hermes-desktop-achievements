@@ -534,6 +534,29 @@ let _lastTotal = null
 let _knownRewards = new Map() // id -> { id, unlocked }
 let _rewardsBaseline = false
 
+// Reward state may only be judged on a SETTLED scan. While a scan is in flight
+// the backend serves in-progress snapshots whose aggregate is built from only
+// the sessions scanned so far, and a first-ever run serves an empty
+// placeholder. Either way the streak metric reads as 0, so the streak reward
+// looks locked mid-scan and then "flips" unlocked when the scan completes.
+// Without this gate that flip re-celebrated an already-earned reward on every
+// scan cycle. Note: deliberately NOT gated on is_stale — a finished snapshot
+// past its 120s TTL is stale but perfectly valid.
+function rewardsAreSettled(data) {
+  const meta = (data && data.scan_meta) || {}
+  const state = meta.status && meta.status.state
+  if (state && state !== 'idle') return false
+  if (meta.mode === 'pending' || meta.mode === 'in_progress') return false
+  const scanned = meta.sessions_scanned_so_far
+  const expected = meta.sessions_expected_total
+  if (typeof scanned === 'number' && typeof expected === 'number' && expected > 0 && scanned < expected) {
+    return false
+  }
+  const streak = data && data.streak
+  if (!streak || typeof streak.max_streak_days !== 'number') return false
+  return true
+}
+
 function celebrateRewardUnlock(r) {
   celebrate({ name: r.name, tier: 'Diamond' }, { milestone: true })
   host.notify({
@@ -543,22 +566,46 @@ function celebrateRewardUnlock(r) {
   postToWebhook(`🎁 Reward unlocked: ${r.name}!`)
 }
 
-function trackRewards(rewards, ctx) {
+async function persistRewardBaseline(ctx) {
+  try {
+    await ctx.storage.set('knownRewards', Array.from(_knownRewards, ([id, unlocked]) => ({ id, unlocked })))
+  } catch (e) {
+    /* storage unavailable — in-memory tracking still covers this session */
+  }
+}
+
+async function trackRewards(rewards, ctx, data) {
   if (!rewards || rewards.length === 0) return
+  if (!rewardsAreSettled(data)) return
   const current = new Map(rewards.map(r => [r.id, r.unlocked]))
   if (!_rewardsBaseline) {
-    _knownRewards = current
+    // First settled fetch. Seed from storage so a reload cannot re-celebrate an
+    // old unlock, and adopt the current state for any reward never seen before.
+    let stored = []
+    try {
+      stored = (await ctx.storage.get('knownRewards')) || []
+    } catch (e) {
+      /* storage unavailable — treat as empty */
+    }
+    _knownRewards = new Map((Array.isArray(stored) ? stored : []).map(s => [s.id, !!s.unlocked]))
+    for (const [id, unlocked] of current) {
+      if (!_knownRewards.has(id)) _knownRewards.set(id, unlocked)
+    }
     _rewardsBaseline = true
+    await persistRewardBaseline(ctx)
     return
   }
+  let changed = false
   for (const [id, unlocked] of current) {
     const was = _knownRewards.get(id)
     if (was === false && unlocked === true) {
       const r = rewards.find(x => x.id === id)
       if (r) celebrateRewardUnlock(r)
     }
+    if (was !== unlocked) changed = true
     _knownRewards.set(id, unlocked)
   }
+  if (changed) await persistRewardBaseline(ctx)
 }
 
 // Quest + custom-goal completion moments: same flip detection as rewards.
@@ -718,8 +765,9 @@ async function refreshUnlocks(ctx) {
     }
     _lastTotal = totalNow
 
-    // Reward flips (locked → unlocked) get their own celebration.
-    trackRewards(data?.rewards, ctx)
+    // Reward flips (locked → unlocked) get their own celebration, but only on
+    // a settled scan (see rewardsAreSettled).
+    await trackRewards(data?.rewards, ctx, data)
 
     // Quest + custom-goal completion moments.
     trackQuests(data?.quests)
